@@ -188,6 +188,22 @@
   .help-link{position:absolute;right:0;top:22px;background:none;border:1px solid var(--line);color:var(--muted);
     width:30px;height:30px;border-radius:50%;cursor:pointer;font-weight:700;font-size:14px}
   .footnote{text-align:center;color:#5b626e;font-size:11px;margin-top:10px}
+
+  /* ---------- Give Up ---------- */
+  .give-up-wrap{display:flex;justify-content:center;gap:8px;margin-top:14px;align-items:center}
+  .btn-give-up{
+    background:none;border:1px solid #3a404c;color:#5b626e;border-radius:8px;
+    padding:7px 16px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+    transition:border-color .15s,color .15s,background .15s;letter-spacing:.04em;min-height:36px;
+  }
+  .btn-give-up:hover{border-color:#c0392b;color:#e05c4a}
+  .btn-give-up.confirming{border-color:#c0392b;color:#e05c4a;background:rgba(192,57,43,.08)}
+  .btn-give-up-cancel{
+    background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;
+    padding:7px 12px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+    transition:border-color .15s,color .15s;min-height:36px;display:none;
+  }
+  .btn-give-up-cancel:hover{border-color:var(--muted);color:var(--text)}
   @media (max-width:480px){
     .wrap{padding:0 12px calc(16px + env(safe-area-inset-bottom));}
     .kb{gap:5px}
@@ -228,6 +244,10 @@
     </div>
 
     <div class="kb" id="keyboard" role="group" aria-label="Keyboard"></div>
+    <div class="give-up-wrap" id="giveUpWrap">
+      <button class="btn-give-up-cancel" id="giveUpCancelBtn" type="button">Cancel</button>
+      <button class="btn-give-up" id="giveUpBtn" type="button">Give Up</button>
+    </div>
     <p class="footnote" id="footnote"></p>
   </div>
 
@@ -519,9 +539,10 @@ function chip(k,v){
 }
 
 /* ----------------- end game ----------------- */
-function endGame(didWin){
+function endGame(didWin, gaveUp){
+  updateGiveUpVisibility();
   const overlay = document.getElementById('overlay');
-  document.getElementById('modalTitle').textContent = didWin ? winTitle(guesses.length) : 'So close!';
+  document.getElementById('modalTitle').textContent = didWin ? winTitle(guesses.length) : (gaveUp ? 'You gave up!' : 'So close!');
   document.getElementById('modalAnswer').textContent = display;
   document.getElementById('modalSub').textContent = `${answer.co} · ${answer.c} · ${answer.p.toLocaleString()} people`;
   const stats = document.getElementById('modalStats');
@@ -597,6 +618,41 @@ if(learnMoreBtn){
   });
 }
 
+
+/* ----------------- give up ----------------- */
+function updateGiveUpVisibility(){
+  const wrap = document.getElementById('giveUpWrap');
+  if(wrap) wrap.style.display = finished ? 'none' : 'flex';
+}
+(function initGiveUp(){
+  const btn = document.getElementById('giveUpBtn');
+  const cancelBtn = document.getElementById('giveUpCancelBtn');
+  if(!btn) return;
+  let confirming = false;
+  function resetConfirm(){
+    confirming = false;
+    btn.textContent = 'Give Up';
+    btn.classList.remove('confirming');
+    cancelBtn.style.display = 'none';
+  }
+  btn.addEventListener('click', ()=>{
+    if(finished) return;
+    if(!confirming){
+      confirming = true;
+      btn.textContent = 'Confirm give up?';
+      btn.classList.add('confirming');
+      cancelBtn.style.display = 'inline-flex';
+    } else {
+      finished = true;
+      won = false;
+      saveState();
+      render();
+      resetConfirm();
+      endGame(false, true);
+    }
+  });
+  cancelBtn.addEventListener('click', resetConfirm);
+})();
 
 /* ----------------- countdown ----------------- */
 let cdTimer=null;
@@ -680,6 +736,7 @@ function hydrateGame(mode = currentMode){
   loadState();
   renderHints();
   render();
+  updateGiveUpVisibility();
   document.getElementById('overlay').classList.remove('show');
   if(finished) setTimeout(()=>endGame(won), 300);
 }
