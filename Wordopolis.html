@@ -168,6 +168,10 @@
     padding:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
     min-height:44px;
   }
+  .btn-secondary{
+    background:transparent;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px
+  }
   .btn-primary:active{transform:translateY(1px)}
   .countdown{margin-top:12px;color:var(--muted);font-size:12px}
   .countdown b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -225,7 +229,10 @@
       <div class="answer" id="modalAnswer">—</div>
       <p class="sub" id="modalSub">—</p>
       <div class="stat-grid" id="modalStats"></div>
-      <button class="btn-primary" id="shareBtn">Share result</button>
+      <div class="modal-actions" style="display:flex;gap:10px;margin-top:12px;align-items:center;">
+        <button class="btn-primary" id="shareBtn">Share result</button>
+        <button class="btn-secondary" id="practicePlayBtn" style="display:none">Play practice</button>
+      </div>
       <div class="countdown">Next city in <b id="cd">—</b></div>
     </div>
   </div>
@@ -510,7 +517,10 @@ function endGame(didWin){
   stats.innerHTML='';
   stats.appendChild(stat(didWin ? guesses.length : 'X', 'Guesses'));
   stats.appendChild(stat(hintsUsed, 'Hints used'));
+  // Show overlay and reveal practice-play option for finished games
   overlay.classList.add('show');
+  const practiceBtn = document.getElementById('practicePlayBtn');
+  if(practiceBtn) practiceBtn.style.display = 'inline-flex';
   startCountdown();
 }
 function winTitle(n){
@@ -552,6 +562,14 @@ document.getElementById('shareBtn').addEventListener('click', async ()=>{
     catch(_){ toast('Could not copy'); }
   }
 });
+
+const practicePlayBtn = document.getElementById('practicePlayBtn');
+if(practicePlayBtn){
+  practicePlayBtn.addEventListener('click', ()=>{
+    document.getElementById('overlay').classList.remove('show');
+    hydrateGame('practice');
+  });
+}
 
 /* ----------------- countdown ----------------- */
 let cdTimer=null;
