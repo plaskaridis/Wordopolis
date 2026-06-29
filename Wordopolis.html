@@ -464,19 +464,19 @@ const hintRow2 = document.getElementById('hintRow2');
 const hintRow3 = document.getElementById('hintRow3');
 function renderHints(){
   hintRow1.innerHTML=''; hintRow2.innerHTML=''; hintRow3.innerHTML='';
-  // Hint 1: population
+  // Hint 1: continent
   if(hintsUsed >= 1){
-    hintRow1.appendChild(chip('Population', popHint(answer.p)));
+    hintRow1.appendChild(chip('Continent', answer.c));
   } else {
-    hintRow1.appendChild(hintButton('Reveal population range', ()=>{ hintsUsed=1; saveState(); renderHints(); }));
+    hintRow1.appendChild(hintButton('Reveal continent', ()=>{ hintsUsed=1; saveState(); renderHints(); }));
   }
-  // Hint 2: continent (locked until hint 1 used)
+  // Hint 2: population (locked until hint 1 used)
   if(hintsUsed >= 2){
-    hintRow2.appendChild(chip('Continent', answer.c));
+    hintRow2.appendChild(chip('Population', popHint(answer.p)));
   } else if(hintsUsed >= 1){
-    hintRow2.appendChild(hintButton('Reveal continent', ()=>{ hintsUsed=2; saveState(); renderHints(); }));
+    hintRow2.appendChild(hintButton('Reveal population range', ()=>{ hintsUsed=2; saveState(); renderHints(); }));
   } else {
-    hintRow2.appendChild(hintButton('Continent', null, 'Use hint 1 first'));
+    hintRow2.appendChild(hintButton('Population', null, 'Use hint 1 first'));
   }
   // Hint 3: country (locked until hint 2 used)
   if(hintsUsed >= 3){
