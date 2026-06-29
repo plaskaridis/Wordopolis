@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Wordopolis preview</title>
+  <desc id="desc">A stylized preview card for the Wordopolis daily city guessing game.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b2330"/>
+      <stop offset="55%" stop-color="#13151a"/>
+      <stop offset="100%" stop-color="#0e1014"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
+  <circle cx="980" cy="150" r="160" fill="#f4b740" opacity="0.18"/>
+  <rect x="120" y="150" width="960" height="330" rx="28" fill="#1d212a" stroke="#2c323d" stroke-width="3"/>
+  <text x="180" y="248" fill="#f4b740" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" letter-spacing="6">WORDOPOLIS</text>
+  <text x="180" y="322" fill="#e9ebef" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">Guess today’s city</text>
+  <text x="180" y="384" fill="#9aa1ad" font-family="Arial, Helvetica, sans-serif" font-size="30">Share your result in one tap • Mobile-friendly</text>
+  <rect x="180" y="430" width="200" height="54" rx="12" fill="#f4b740"/>
+  <text x="240" y="466" text-anchor="middle" fill="#1a1500" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Play now</text>
+</svg>
