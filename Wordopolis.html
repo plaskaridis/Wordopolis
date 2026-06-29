@@ -175,6 +175,12 @@
     background:linear-gradient(180deg,var(--accent),var(--accent-dim));color:#1a1500;border:none;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer;
     display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap
   }
+  .btn-learn-more{
+    width:100%;background:none;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;margin-top:10px;transition:all 0.2s ease
+  }
+  .btn-learn-more:hover{background:var(--accent);color:#1a1500}
+  .btn-learn-more:active{transform:translateY(1px)}
   .btn-primary:active{transform:translateY(1px)}
   .countdown{margin-top:12px;color:var(--muted);font-size:12px}
   .countdown b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -236,6 +242,7 @@
         <button class="btn-primary" id="shareBtn">Share result</button>
         <button class="btn-secondary" id="practicePlayBtn" style="display:none">Play practice</button>
       </div>
+      <button class="btn-learn-more" id="learnMoreBtn" style="display:none">Learn more</button>
       <div class="countdown">Next city in <b id="cd">—</b></div>
     </div>
   </div>
@@ -524,6 +531,12 @@ function endGame(didWin){
   overlay.classList.add('show');
   const practiceBtn = document.getElementById('practicePlayBtn');
   if(practiceBtn) practiceBtn.style.display = 'inline-flex';
+  // Show learn more button
+  const learnMoreBtn = document.getElementById('learnMoreBtn');
+  if(learnMoreBtn){
+    learnMoreBtn.textContent = `Learn more about ${answer.n}!`;
+    learnMoreBtn.style.display = 'block';
+  }
   startCountdown();
 }
 function winTitle(n){
@@ -574,6 +587,15 @@ if(practicePlayBtn){
     toast('Starting practice round');
   });
 }
+
+const learnMoreBtn = document.getElementById('learnMoreBtn');
+if(learnMoreBtn){
+  learnMoreBtn.addEventListener('click', ()=>{
+    const wikiUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(answer.n.replace(/ /g,'_'))}`;
+    window.open(wikiUrl, '_blank');
+  });
+}
+
 
 /* ----------------- countdown ----------------- */
 let cdTimer=null;
