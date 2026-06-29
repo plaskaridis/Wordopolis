@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wordopolis — Guess today's city</title>
+<meta name="description" content="A daily word game where the answer is a city. Same color rules as Wordle." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#13151a;
+    --bg2:#0e1014;
+    --surface:#1d212a;
+    --surface2:#252a35;
+    --line:#2c323d;
+    --text:#e9ebef;
+    --muted:#9aa1ad;
+    --correct:#3aa657;
+    --present:#d6a323;
+    --absent:#363b45;
+    --absent-key:#3c424d;
+    --accent:#f4b740;       /* city-lights gold */
+    --accent-dim:#9a7a2a;
+    --tile:#272c36;
+    --tile-line:#3a4150;
+    --radius:6px;
+    --maxw:520px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:radial-gradient(1200px 600px at 50% -10%, #1b2330 0%, var(--bg) 55%, var(--bg2) 100%);
+    color:var(--text);
+    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;align-items:center;
+    min-height:100dvh;
+  }
+  .wrap{width:100%;max-width:var(--maxw);padding:0 16px 20px;display:flex;flex-direction:column;min-height:100dvh}
+
+  /* ---------- Header / wordmark ---------- */
+  header{padding:18px 0 6px;text-align:center;position:relative}
+  .wordmark{
+    font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.06em;
+    font-size:clamp(34px,9vw,52px);line-height:.92;margin:0;text-transform:uppercase;
+    color:var(--text);
+  }
+  .wordmark .lit{color:var(--accent)}
+  .tagline{margin:6px 0 0;color:var(--muted);font-size:13px;letter-spacing:.02em}
+  .meta{margin-top:2px;color:var(--accent-dim);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  /* skyline signature */
+  .skyline{display:block;width:100%;max-width:420px;margin:10px auto 0;height:34px;opacity:.9}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line) 20%,var(--line) 80%,transparent);margin:10px 0 6px}
+
+  /* ---------- Board ---------- */
+  .board-scroll{overflow-x:auto;overflow-y:hidden;padding:6px 2px;scrollbar-width:thin;flex-shrink:0}
+  .board{display:flex;flex-direction:column;gap:6px;align-items:center;min-width:min-content;margin:0 auto}
+  .row{display:flex;gap:6px;justify-content:center}
+  .tile{
+    width:clamp(30px,9.5vw,46px);height:clamp(30px,9.5vw,46px);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:clamp(15px,4.6vw,22px);text-transform:uppercase;
+    border:2px solid var(--tile-line);background:var(--tile);border-radius:4px;
+    color:var(--text);user-select:none;transition:transform .08s ease, background .2s ease, border-color .2s ease;
+  }
+  .tile.filled{border-color:#525a69;animation:pop .12s ease}
+  .tile.cursor{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .tile.fixed{background:transparent;border-color:transparent;color:var(--muted);font-weight:600}
+  .tile.space{width:clamp(10px,3vw,16px);border-color:transparent;background:transparent}
+  .tile.correct{background:var(--correct);border-color:var(--correct);color:#fff}
+  .tile.present{background:var(--present);border-color:var(--present);color:#1a1a1a}
+  .tile.absent{background:var(--absent);border-color:var(--absent);color:#fff}
+  .row.reveal .tile{animation:flip .5s ease forwards}
+  .row.reveal .tile:nth-child(2){animation-delay:.08s}
+  .row.reveal .tile:nth-child(3){animation-delay:.16s}
+  .row.reveal .tile:nth-child(4){animation-delay:.24s}
+  .row.reveal .tile:nth-child(5){animation-delay:.32s}
+  .row.reveal .tile:nth-child(6){animation-delay:.40s}
+  .row.reveal .tile:nth-child(7){animation-delay:.48s}
+  .row.reveal .tile:nth-child(8){animation-delay:.56s}
+  @keyframes pop{0%{transform:scale(.9)}100%{transform:scale(1)}}
+  @keyframes flip{0%{transform:rotateX(0)}45%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+  @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+  .row.bad{animation:shake .5s}
+
+  /* ---------- Hints ---------- */
+  .hints{margin:14px auto 6px;display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px;flex-shrink:0}
+  .hint-row{display:flex;gap:8px;align-items:stretch}
+  .hint-btn{
+    flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:8px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,border-color .15s,opacity .15s;
+  }
+  .hint-btn:hover:not(:disabled){background:var(--surface2);border-color:#3e4654}
+  .hint-btn:disabled{opacity:.45;cursor:not-allowed}
+  .hint-btn .lock{font-size:11px;color:var(--muted);font-weight:600}
+  .hint-chip{
+    flex:1;display:flex;flex-direction:column;justify-content:center;gap:1px;
+    background:linear-gradient(180deg,var(--surface2),var(--surface));
+    border:1px solid var(--accent-dim);border-radius:8px;padding:7px 12px;
+  }
+  .hint-chip .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .hint-chip .v{font-size:15px;font-weight:700}
+
+  /* ---------- Keyboard ---------- */
+  .kb{margin-top:12px;padding-top:12px;display:flex;flex-direction:column;gap:6px;width:100%;flex-shrink:0}
+  .kb-row{display:flex;gap:5px;justify-content:center}
+  .key{
+    flex:1;min-width:0;height:50px;border:none;border-radius:5px;background:var(--surface2);
+    color:var(--text);font:inherit;font-weight:600;font-size:14px;text-transform:uppercase;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s, transform .05s;user-select:none;
+  }
+  .key:active{transform:translateY(1px)}
+  .key.wide{flex:1.5;font-size:11px;letter-spacing:.04em}
+  .key.correct{background:var(--correct);color:#fff}
+  .key.present{background:var(--present);color:#1a1a1a}
+  .key.absent{background:var(--absent-key);color:#8a909c}
+
+  /* ---------- Toast & modal ---------- */
+  .toast{
+    position:fixed;top:14px;left:50%;transform:translateX(-50%);
+    background:var(--text);color:#15171c;padding:9px 16px;border-radius:8px;font-weight:600;font-size:14px;
+    opacity:0;pointer-events:none;transition:opacity .2s, top .2s;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  .toast.show{opacity:1;top:20px}
+  .overlay{position:fixed;inset:0;background:rgba(8,9,12,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:40}
+  .overlay.show{display:flex}
+  .modal{
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;max-width:380px;width:100%;
+    padding:22px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal h2{font-family:"Oswald";font-weight:700;font-size:22px;margin:0 0 4px;letter-spacing:.04em}
+  .modal .answer{font-size:26px;font-weight:800;margin:10px 0 2px;color:var(--accent)}
+  .modal .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .modal .stat-grid{display:flex;justify-content:center;gap:18px;margin:8px 0 16px}
+  .modal .stat{display:flex;flex-direction:column}
+  .modal .stat b{font-size:22px}
+  .modal .stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .btn-primary{
+    width:100%;background:var(--accent);color:#1a1500;border:none;border-radius:10px;
+    padding:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .btn-primary:active{transform:translateY(1px)}
+  .countdown{margin-top:12px;color:var(--muted);font-size:12px}
+  .countdown b{color:var(--text);font-variant-numeric:tabular-nums}
+  .help-link{position:absolute;right:0;top:22px;background:none;border:1px solid var(--line);color:var(--muted);
+    width:30px;height:30px;border-radius:50%;cursor:pointer;font-weight:700;font-size:14px}
+  .footnote{text-align:center;color:#5b626e;font-size:11px;margin-top:10px}
+  @media (prefers-reduced-motion: reduce){
+    .row.reveal .tile,.tile.filled,.row.bad{animation:none!important}
+  }
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <button class="help-link" id="helpBtn" aria-label="How to play">?</button>
+      <h1 class="wordmark">Word<span class="lit">opolis</span></h1>
+      <p class="tagline">Guess today’s city.</p>
+      <p class="meta" id="meta">Puzzle #—</p>
+      <svg class="skyline" viewBox="0 0 420 34" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="rule"></div>
+    </header>
+
+    <div class="board-scroll">
+      <div class="board" id="board" aria-label="Guess grid"></div>
+    </div>
+
+    <div class="hints" id="hints">
+      <div class="hint-row" id="hintRow1"></div>
+      <div class="hint-row" id="hintRow2"></div>
+      <div class="hint-row" id="hintRow3"></div>
+    </div>
+
+    <div class="kb" id="keyboard" role="group" aria-label="Keyboard"></div>
+    <p class="footnote" id="footnote"></p>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">—</h2>
+      <div class="answer" id="modalAnswer">—</div>
+      <p class="sub" id="modalSub">—</p>
+      <div class="stat-grid" id="modalStats"></div>
+      <button class="btn-primary" id="shareBtn">Share result</button>
+      <div class="countdown">Next city in <b id="cd">—</b></div>
+    </div>
+  </div>
+
+<script>
+const CITIES = [{"n": "Shanghai", "p": 24874500, "c": "Asia", "co": "China"}, {"n": "Beijing", "p": 18960744, "c": "Asia", "co": "China"}, {"n": "Shenzhen", "p": 17494398, "c": "Asia", "co": "China"}, {"n": "Guangzhou", "p": 16096724, "c": "Asia", "co": "China"}, {"n": "Kinshasa", "p": 16000000, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Istanbul", "p": 15701602, "c": "Asia", "co": "Turkey"}, {"n": "Lagos", "p": 15388000, "c": "Africa", "co": "Nigeria"}, {"n": "Ho Chi Minh City", "p": 14002598, "c": "Asia", "co": "Vietnam"}, {"n": "Chengdu", "p": 13568357, "c": "Asia", "co": "China"}, {"n": "Lahore", "p": 13004135, "c": "Asia", "co": "Pakistan"}, {"n": "Mumbai", "p": 12691836, "c": "Asia", "co": "India"}, {"n": "São Paulo", "p": 12400232, "c": "South America", "co": "Brazil"}, {"n": "Mexico City", "p": 12294193, "c": "North America", "co": "Mexico"}, {"n": "Karachi", "p": 11624219, "c": "Asia", "co": "Pakistan"}, {"n": "Tianjin", "p": 11090314, "c": "Asia", "co": "China"}, {"n": "Delhi", "p": 11034555, "c": "Asia", "co": "India"}, {"n": "Wuhan", "p": 10392693, "c": "Asia", "co": "China"}, {"n": "Moscow", "p": 10381222, "c": "Europe", "co": "Russia"}, {"n": "Dhaka", "p": 10356500, "c": "Asia", "co": "Bangladesh"}, {"n": "Seoul", "p": 10349312, "c": "Asia", "co": "South Korea"}, {"n": "Tokyo", "p": 9733276, "c": "Asia", "co": "Japan"}, {"n": "Dongguan", "p": 9644871, "c": "Asia", "co": "China"}, {"n": "Cairo", "p": 9606916, "c": "Africa", "co": "Egypt"}, {"n": "Johannesburg", "p": 9418183, "c": "Africa", "co": "South Africa"}, {"n": "Nanjing", "p": 9314685, "c": "Asia", "co": "China"}, {"n": "Hangzhou", "p": 9236032, "c": "Asia", "co": "China"}, {"n": "Foshan", "p": 9042509, "c": "Asia", "co": "China"}, {"n": "London", "p": 8961989, "c": "Europe", "co": "United Kingdom"}, {"n": "New York City", "p": 8804190, "c": "North America", "co": "United States"}, {"n": "Jakarta", "p": 8540121, "c": "Asia", "co": "Indonesia"}, {"n": "Bengaluru", "p": 8495492, "c": "Asia", "co": "India"}, {"n": "Hanoi", "p": 8053663, "c": "Asia", "co": "Vietnam"}, {"n": "Taipei", "p": 7871900, "c": "Asia", "co": "Taiwan"}, {"n": "Lima", "p": 7737002, "c": "South America", "co": "Peru"}, {"n": "Bogotá", "p": 7674366, "c": "South America", "co": "Colombia"}, {"n": "Chongqing", "p": 7457599, "c": "Asia", "co": "China"}, {"n": "Hong Kong", "p": 7396076, "c": "Asia", "co": "Hong Kong"}, {"n": "Baghdad", "p": 7216000, "c": "Asia", "co": "Iraq"}, {"n": "Qingdao", "p": 7172451, "c": "Asia", "co": "China"}, {"n": "Tehran", "p": 7153309, "c": "Asia", "co": "Iran"}, {"n": "Shenyang", "p": 7050000, "c": "Asia", "co": "China"}, {"n": "Hyderabad", "p": 6993262, "c": "Asia", "co": "India"}, {"n": "Rio de Janeiro", "p": 6747815, "c": "South America", "co": "Brazil"}, {"n": "Suzhou", "p": 6715559, "c": "Asia", "co": "China"}, {"n": "Ahmedabad", "p": 6357693, "c": "Asia", "co": "India"}, {"n": "Abidjan", "p": 6321017, "c": "Africa", "co": "Ivory Coast"}, {"n": "Singapore", "p": 5638700, "c": "Asia", "co": "Singapore"}, {"n": "Sydney", "p": 5557233, "c": "Oceania", "co": "Australia"}, {"n": "Dar es Salaam", "p": 5383728, "c": "Africa", "co": "Tanzania"}, {"n": "Saint Petersburg", "p": 5351935, "c": "Europe", "co": "Russia"}, {"n": "Melbourne", "p": 5350705, "c": "Oceania", "co": "Australia"}, {"n": "Alexandria", "p": 5263542, "c": "Africa", "co": "Egypt"}, {"n": "Harbin", "p": 5242897, "c": "Asia", "co": "China"}, {"n": "Bangkok", "p": 5104476, "c": "Asia", "co": "Thailand"}, {"n": "Hefei", "p": 5050000, "c": "Asia", "co": "China"}, {"n": "Dalian", "p": 4913879, "c": "Asia", "co": "China"}, {"n": "Kano", "p": 4910000, "c": "Africa", "co": "Nigeria"}, {"n": "Santiago", "p": 4837295, "c": "South America", "co": "Chile"}, {"n": "Cape Town", "p": 4772846, "c": "Africa", "co": "South Africa"}, {"n": "Peshawar", "p": 4758762, "c": "Asia", "co": "Pakistan"}, {"n": "Changchun", "p": 4714996, "c": "Asia", "co": "China"}, {"n": "Jeddah", "p": 4697000, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Chennai", "p": 4681087, "c": "Asia", "co": "India"}, {"n": "Kolkata", "p": 4631392, "c": "Asia", "co": "India"}, {"n": "Xiamen", "p": 4617251, "c": "Asia", "co": "China"}, {"n": "Surat", "p": 4591246, "c": "Asia", "co": "India"}, {"n": "Yangon", "p": 4477638, "c": "Asia", "co": "Myanmar"}, {"n": "Bao'an", "p": 4476554, "c": "Asia", "co": "China"}, {"n": "Kabul", "p": 4434550, "c": "Asia", "co": "Afghanistan"}, {"n": "Nairobi", "p": 4397073, "c": "Africa", "co": "Kenya"}, {"n": "Wuxi", "p": 4396835, "c": "Asia", "co": "China"}, {"n": "Giza", "p": 4367343, "c": "Africa", "co": "Egypt"}, {"n": "Jinan", "p": 4335989, "c": "Asia", "co": "China"}, {"n": "Taiyuan", "p": 4303673, "c": "Asia", "co": "China"}, {"n": "Zhengzhou", "p": 4253913, "c": "Asia", "co": "China"}, {"n": "Bamako", "p": 4227569, "c": "Africa", "co": "Mali"}, {"n": "Riyadh", "p": 4205961, "c": "Asia", "co": "Saudi Arabia"}, {"n": "New Taipei City", "p": 4004367, "c": "Asia", "co": "Taiwan"}, {"n": "New Territories", "p": 3984077, "c": "Asia", "co": "Hong Kong"}, {"n": "Shijiazhuang", "p": 3938513, "c": "Asia", "co": "China"}, {"n": "Chattogram", "p": 3920222, "c": "Asia", "co": "Bangladesh"}, {"n": "Addis Ababa", "p": 3860000, "c": "Africa", "co": "Ethiopia"}, {"n": "Kunming", "p": 3855346, "c": "Asia", "co": "China"}, {"n": "Zhongshan", "p": 3841873, "c": "Asia", "co": "China"}, {"n": "Nanning", "p": 3839800, "c": "Asia", "co": "China"}, {"n": "Shantou", "p": 3838900, "c": "Asia", "co": "China"}, {"n": "Los Angeles", "p": 3820914, "c": "North America", "co": "United States"}, {"n": "Faisalabad", "p": 3800193, "c": "Asia", "co": "Pakistan"}, {"n": "Dubai", "p": 3790000, "c": "Asia", "co": "United Arab Emirates"}, {"n": "Yokohama", "p": 3777491, "c": "Asia", "co": "Japan"}, {"n": "Fuzhou", "p": 3740000, "c": "Asia", "co": "China"}, {"n": "Ningbo", "p": 3731203, "c": "Asia", "co": "China"}, {"n": "Casablanca", "p": 3665954, "c": "Africa", "co": "Morocco"}, {"n": "Ibadan", "p": 3649000, "c": "Africa", "co": "Nigeria"}, {"n": "Puyang", "p": 3590000, "c": "Asia", "co": "China"}, {"n": "Ankara", "p": 3517182, "c": "Asia", "co": "Turkey"}, {"n": "Shiyan", "p": 3460000, "c": "Asia", "co": "China"}, {"n": "Berlin", "p": 3426354, "c": "Europe", "co": "Germany"}, {"n": "Tangshan", "p": 3372102, "c": "Asia", "co": "China"}, {"n": "Rawalpindi", "p": 3357612, "c": "Asia", "co": "Pakistan"}, {"n": "Lüliang", "p": 3346500, "c": "Asia", "co": "China"}, {"n": "Busan", "p": 3343903, "c": "Asia", "co": "South Korea"}, {"n": "Durban", "p": 3338026, "c": "Africa", "co": "South Africa"}, {"n": "Changzhou", "p": 3290918, "c": "Asia", "co": "China"}, {"n": "Madrid", "p": 3255944, "c": "Europe", "co": "Spain"}, {"n": "Pyongyang", "p": 3222000, "c": "Asia", "co": "North Korea"}, {"n": "Zibo", "p": 3129228, "c": "Asia", "co": "China"}, {"n": "Pune", "p": 3124458, "c": "Asia", "co": "India"}, {"n": "Bursa", "p": 3101833, "c": "Asia", "co": "Turkey"}, {"n": "Changsha", "p": 3093980, "c": "Asia", "co": "China"}, {"n": "Jaipur", "p": 3046163, "c": "Asia", "co": "India"}, {"n": "Guiyang", "p": 3037159, "c": "Asia", "co": "China"}, {"n": "Ürümqi", "p": 3029372, "c": "Asia", "co": "China"}, {"n": "Incheon", "p": 3016250, "c": "Asia", "co": "South Korea"}, {"n": "Lanzhou", "p": 3000000, "c": "Asia", "co": "China"}, {"n": "Caracas", "p": 3000000, "c": "South America", "co": "Venezuela"}, {"n": "Quezon City", "p": 2960048, "c": "Asia", "co": "Philippines"}, {"n": "Huizhou", "p": 2900113, "c": "Asia", "co": "China"}, {"n": "Buenos Aires", "p": 2891082, "c": "South America", "co": "Argentina"}, {"n": "Surabaya", "p": 2874314, "c": "Asia", "co": "Indonesia"}, {"n": "Haikou", "p": 2873358, "c": "Asia", "co": "China"}, {"n": "Taichung", "p": 2850285, "c": "Asia", "co": "Taiwan"}, {"n": "Kanpur", "p": 2823249, "c": "Asia", "co": "India"}, {"n": "Kyiv", "p": 2797553, "c": "Europe", "co": "Ukraine"}, {"n": "Toronto", "p": 2794356, "c": "North America", "co": "Canada"}, {"n": "Quito", "p": 2781641, "c": "South America", "co": "Ecuador"}, {"n": "Brisbane", "p": 2780063, "c": "Oceania", "co": "Australia"}, {"n": "Luanda", "p": 2776168, "c": "Africa", "co": "Angola"}, {"n": "Osaka", "p": 2753862, "c": "Asia", "co": "Japan"}, {"n": "Linyi", "p": 2743843, "c": "Asia", "co": "China"}, {"n": "Baoding", "p": 2739887, "c": "Asia", "co": "China"}, {"n": "Kaohsiung", "p": 2737660, "c": "Asia", "co": "Taiwan"}, {"n": "Brooklyn", "p": 2736074, "c": "North America", "co": "United States"}, {"n": "Guayaquil", "p": 2723665, "c": "South America", "co": "Ecuador"}, {"n": "Belo Horizonte", "p": 2721564, "c": "South America", "co": "Brazil"}, {"n": "Salvador", "p": 2711840, "c": "South America", "co": "Brazil"}, {"n": "Abuja", "p": 2690000, "c": "Africa", "co": "Nigeria"}, {"n": "Gazipur", "p": 2674697, "c": "Asia", "co": "Bangladesh"}, {"n": "Chicago", "p": 2664452, "c": "North America", "co": "United States"}, {"n": "Wenzhou", "p": 2650000, "c": "Asia", "co": "China"}, {"n": "Dakar", "p": 2646503, "c": "Africa", "co": "Senegal"}, {"n": "Haiphong", "p": 2625200, "c": "Asia", "co": "Vietnam"}, {"n": "Yunfu", "p": 2612800, "c": "Asia", "co": "China"}, {"n": "Navi Mumbai", "p": 2600000, "c": "Asia", "co": "India"}, {"n": "Mogadishu", "p": 2587183, "c": "Africa", "co": "Somalia"}, {"n": "Bekasi", "p": 2564940, "c": "Asia", "co": "Indonesia"}, {"n": "Kumasi", "p": 2544530, "c": "Africa", "co": "Ghana"}, {"n": "Gujranwala", "p": 2511118, "c": "Asia", "co": "Pakistan"}, {"n": "İzmir", "p": 2500603, "c": "Asia", "co": "Turkey"}, {"n": "Huai'an", "p": 2494013, "c": "Asia", "co": "China"}, {"n": "Lucknow", "p": 2472011, "c": "Asia", "co": "India"}, {"n": "Bandung", "p": 2444160, "c": "Asia", "co": "Indonesia"}, {"n": "Medan", "p": 2435252, "c": "Asia", "co": "Indonesia"}, {"n": "Ouagadougou", "p": 2415266, "c": "Africa", "co": "Burkina Faso"}, {"n": "Nagpur", "p": 2405665, "c": "Asia", "co": "India"}, {"n": "Fortaleza", "p": 2400000, "c": "South America", "co": "Brazil"}, {"n": "Cali", "p": 2392877, "c": "South America", "co": "Colombia"}, {"n": "Daegu", "p": 2365523, "c": "Asia", "co": "South Korea"}, {"n": "Algiers", "p": 2364230, "c": "Africa", "co": "Algeria"}, {"n": "Nanchang", "p": 2357839, "c": "Asia", "co": "China"}, {"n": "Hohhot", "p": 2350000, "c": "Asia", "co": "China"}, {"n": "Nagoya", "p": 2332176, "c": "Asia", "co": "Japan"}, {"n": "Rome", "p": 2318895, "c": "Europe", "co": "Italy"}, {"n": "Queens", "p": 2316841, "c": "North America", "co": "United States"}, {"n": "Houston", "p": 2314157, "c": "North America", "co": "United States"}, {"n": "Perth", "p": 2309338, "c": "Oceania", "co": "Australia"}, {"n": "Mashhad", "p": 2307177, "c": "Asia", "co": "Iran"}, {"n": "Shaoxing", "p": 2300000, "c": "Asia", "co": "China"}, {"n": "Nantong", "p": 2273326, "c": "Asia", "co": "China"}, {"n": "Kowloon", "p": 2232339, "c": "Asia", "co": "Hong Kong"}, {"n": "Yantai", "p": 2227733, "c": "Asia", "co": "China"}, {"n": "Lubumbashi", "p": 2221925, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Manaus", "p": 2219580, "c": "South America", "co": "Brazil"}, {"n": "Lusaka", "p": 2212301, "c": "Africa", "co": "Zambia"}, {"n": "Brasília", "p": 2207718, "c": "South America", "co": "Brazil"}, {"n": "Zhuhai", "p": 2207090, "c": "Asia", "co": "China"}, {"n": "Santo Domingo", "p": 2201941, "c": "North America", "co": "Dominican Republic"}, {"n": "Lomé", "p": 2188376, "c": "Africa", "co": "Togo"}, {"n": "Multan", "p": 2169915, "c": "Asia", "co": "Pakistan"}, {"n": "Havana", "p": 2163824, "c": "North America", "co": "Cuba"}, {"n": "Baotou", "p": 2150000, "c": "Asia", "co": "China"}, {"n": "Depok", "p": 2145400, "c": "Asia", "co": "Indonesia"}, {"n": "Paris", "p": 2138551, "c": "Europe", "co": "France"}, {"n": "Coimbatore", "p": 2136916, "c": "Asia", "co": "India"}, {"n": "Gaziantep", "p": 2130432, "c": "Asia", "co": "Turkey"}, {"n": "Qingyang", "p": 2125400, "c": "Asia", "co": "China"}, {"n": "Port Harcourt", "p": 2120000, "c": "Africa", "co": "Nigeria"}, {"n": "Pretoria", "p": 2112693, "c": "Africa", "co": "South Africa"}, {"n": "Córdoba", "p": 2106734, "c": "South America", "co": "Argentina"}, {"n": "Mbuji-Mayi", "p": 2101332, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Aleppo", "p": 2098210, "c": "Asia", "co": "Syria"}, {"n": "Kunshan", "p": 2092496, "c": "Asia", "co": "China"}, {"n": "Al Mawşil al Jadīdah", "p": 2065597, "c": "Asia", "co": "Iraq"}, {"n": "Weifang", "p": 2044028, "c": "Asia", "co": "China"}, {"n": "Zunyi", "p": 2037775, "c": "Asia", "co": "China"}, {"n": "Al Başrah al Qadīmah", "p": 2015483, "c": "Asia", "co": "Iraq"}, {"n": "La Paz", "p": 2004652, "c": "South America", "co": "Bolivia"}, {"n": "Lianyungang", "p": 2001009, "c": "Asia", "co": "China"}, {"n": "Medellín", "p": 1999979, "c": "South America", "co": "Colombia"}, {"n": "Indore", "p": 1994397, "c": "Asia", "co": "India"}, {"n": "Brazzaville", "p": 1982000, "c": "Africa", "co": "Republic of the Congo"}, {"n": "Tashkent", "p": 1978028, "c": "Asia", "co": "Uzbekistan"}, {"n": "Ganzhou", "p": 1977253, "c": "Asia", "co": "China"}, {"n": "Almaty", "p": 1977011, "c": "Asia", "co": "Kazakhstan"}, {"n": "Khartoum", "p": 1974647, "c": "Africa", "co": "Sudan"}, {"n": "Sapporo", "p": 1973832, "c": "Asia", "co": "Japan"}, {"n": "Accra", "p": 1963264, "c": "Africa", "co": "Ghana"}, {"n": "Curitiba", "p": 1948626, "c": "South America", "co": "Brazil"}, {"n": "Ordos", "p": 1940653, "c": "Asia", "co": "China"}, {"n": "Sanaa", "p": 1937451, "c": "Asia", "co": "Yemen"}, {"n": "Conakry", "p": 1928389, "c": "Africa", "co": "Guinea"}, {"n": "Tijuana", "p": 1922523, "c": "North America", "co": "Mexico"}, {"n": "Hyderabad", "p": 1921275, "c": "Asia", "co": "Pakistan"}, {"n": "Beirut", "p": 1916100, "c": "Asia", "co": "Lebanon"}, {"n": "Tangerang", "p": 1912679, "c": "Asia", "co": "Indonesia"}, {"n": "Jieyang", "p": 1899394, "c": "Asia", "co": "China"}, {"n": "Jilin", "p": 1895865, "c": "Asia", "co": "China"}, {"n": "Bucharest", "p": 1877155, "c": "Europe", "co": "Romania"}, {"n": "Camayenne", "p": 1871242, "c": "Africa", "co": "Guinea"}, {"n": "Kakamega", "p": 1867579, "c": "Africa", "co": "Kenya"}, {"n": "Nanchong", "p": 1858875, "c": "Asia", "co": "China"}, {"n": "Tainan", "p": 1856642, "c": "Asia", "co": "Taiwan"}, {"n": "Datong", "p": 1850000, "c": "Asia", "co": "China"}, {"n": "Kaduna", "p": 1850000, "c": "Africa", "co": "Nigeria"}, {"n": "Omdurman", "p": 1849659, "c": "Africa", "co": "Sudan"}, {"n": "Hamburg", "p": 1845229, "c": "Europe", "co": "Germany"}, {"n": "Thāne", "p": 1841488, "c": "Asia", "co": "India"}, {"n": "Santa Cruz de la Sierra", "p": 1831434, "c": "South America", "co": "Bolivia"}, {"n": "Vadodara", "p": 1822221, "c": "Asia", "co": "India"}, {"n": "Adana", "p": 1816750, "c": "Asia", "co": "Turkey"}, {"n": "Iztapalapa", "p": 1815786, "c": "North America", "co": "Mexico"}, {"n": "Nanyang", "p": 1811812, "c": "Asia", "co": "China"}, {"n": "Abu Dhabi", "p": 1807000, "c": "Asia", "co": "United Arab Emirates"}, {"n": "Sharjah", "p": 1800000, "c": "Asia", "co": "United Arab Emirates"}, {"n": "Bhopal", "p": 1798218, "c": "Asia", "co": "India"}, {"n": "Jiangmen", "p": 1795459, "c": "Asia", "co": "China"}, {"n": "Benin City", "p": 1782000, "c": "Africa", "co": "Nigeria"}, {"n": "Jiangyin", "p": 1779515, "c": "Asia", "co": "China"}, {"n": "Davao", "p": 1776949, "c": "Asia", "co": "Philippines"}, {"n": "Fuyang", "p": 1768947, "c": "Asia", "co": "China"}, {"n": "Montréal", "p": 1762949, "c": "North America", "co": "Canada"}, {"n": "Bayan Nur", "p": 1760000, "c": "Asia", "co": "China"}, {"n": "Maracaibo", "p": 1752602, "c": "South America", "co": "Venezuela"}, {"n": "Chaozhou", "p": 1750945, "c": "Asia", "co": "China"}, {"n": "Minsk", "p": 1742124, "c": "Europe", "co": "Belarus"}, {"n": "Budapest", "p": 1741041, "c": "Europe", "co": "Hungary"}, {"n": "Qingyuan", "p": 1738424, "c": "Asia", "co": "China"}, {"n": "Rasapūdipalem", "p": 1728128, "c": "Asia", "co": "India"}, {"n": "Pimpri-Chinchwad", "p": 1727692, "c": "Asia", "co": "India"}, {"n": "Warsaw", "p": 1702139, "c": "Europe", "co": "Poland"}, {"n": "Soweto", "p": 1695047, "c": "Africa", "co": "South Africa"}, {"n": "Puebla", "p": 1692181, "c": "North America", "co": "Mexico"}, {"n": "Vienna", "p": 1691468, "c": "Europe", "co": "Austria"}, {"n": "Patna", "p": 1684297, "c": "Asia", "co": "India"}, {"n": "Mosul", "p": 1683000, "c": "Asia", "co": "Iraq"}, {"n": "Kallakurichi", "p": 1682687, "c": "Asia", "co": "India"}, {"n": "Kampala", "p": 1680600, "c": "Africa", "co": "Uganda"}, {"n": "Xining", "p": 1677177, "c": "Asia", "co": "China"}, {"n": "Changshu", "p": 1677050, "c": "Asia", "co": "China"}, {"n": "Palembang", "p": 1668848, "c": "Asia", "co": "Indonesia"}, {"n": "Huainan", "p": 1666826, "c": "Asia", "co": "China"}, {"n": "Caloocan City", "p": 1661584, "c": "Asia", "co": "Philippines"}, {"n": "Rabat", "p": 1655753, "c": "Africa", "co": "Morocco"}, {"n": "Semarang", "p": 1653524, "c": "Asia", "co": "Indonesia"}, {"n": "Recife", "p": 1653461, "c": "South America", "co": "Brazil"}, {"n": "Phoenix", "p": 1650070, "c": "North America", "co": "United States"}, {"n": "Ecatepec de Morelos", "p": 1645352, "c": "North America", "co": "Mexico"}, {"n": "Barcelona", "p": 1620343, "c": "Europe", "co": "Spain"}, {"n": "Valencia", "p": 1619470, "c": "South America", "co": "Venezuela"}, {"n": "Ludhiana", "p": 1618879, "c": "Asia", "co": "India"}, {"n": "Yancheng", "p": 1615717, "c": "Asia", "co": "China"}, {"n": "Novosibirsk", "p": 1612833, "c": "Europe", "co": "Russia"}, {"n": "Erbil", "p": 1612700, "c": "Asia", "co": "Iraq"}, {"n": "Fukuoka", "p": 1612392, "c": "Asia", "co": "Japan"}, {"n": "Taizhou", "p": 1607108, "c": "Asia", "co": "China"}, {"n": "Daqing", "p": 1604027, "c": "Asia", "co": "China"}, {"n": "Manila", "p": 1600000, "c": "Asia", "co": "Philippines"}, {"n": "Wuhu", "p": 1598165, "c": "Asia", "co": "China"}, {"n": "Santiago de Querétaro", "p": 1594212, "c": "North America", "co": "Mexico"}, {"n": "Dazhou", "p": 1589435, "c": "Asia", "co": "China"}, {"n": "Yangzhou", "p": 1584237, "c": "Asia", "co": "China"}, {"n": "León de los Aldama", "p": 1579803, "c": "North America", "co": "Mexico"}, {"n": "Makkah", "p": 1578722, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Philadelphia", "p": 1573916, "c": "North America", "co": "United States"}, {"n": "Phnom Penh", "p": 1573544, "c": "Asia", "co": "Cambodia"}, {"n": "Guilin", "p": 1572300, "c": "Asia", "co": "China"}, {"n": "Damascus", "p": 1569394, "c": "Asia", "co": "Syria"}, {"n": "Quetta", "p": 1565546, "c": "Asia", "co": "Pakistan"}, {"n": "Zhaoqing", "p": 1553109, "c": "Asia", "co": "China"}, {"n": "Onitsha", "p": 1553000, "c": "Africa", "co": "Nigeria"}, {"n": "Mianyang", "p": 1550000, "c": "Asia", "co": "China"}, {"n": "Isfahan", "p": 1547164, "c": "Asia", "co": "Iran"}, {"n": "Wanzhou", "p": 1545900, "c": "Asia", "co": "China"}, {"n": "Harare", "p": 1542813, "c": "Africa", "co": "Zimbabwe"}, {"n": "Monrovia", "p": 1542549, "c": "Africa", "co": "Liberia"}, {"n": "Putian", "p": 1539389, "c": "Asia", "co": "China"}, {"n": "Kawasaki", "p": 1538262, "c": "Asia", "co": "Japan"}, {"n": "Shangqiu", "p": 1536392, "c": "Asia", "co": "China"}, {"n": "Goiânia", "p": 1536097, "c": "South America", "co": "Brazil"}, {"n": "Auckland", "p": 1530500, "c": "Oceania", "co": "New Zealand"}, {"n": "San Antonio", "p": 1526656, "c": "North America", "co": "United States"}, {"n": "Kobe", "p": 1525152, "c": "Asia", "co": "Japan"}, {"n": "Stockholm", "p": 1515017, "c": "Europe", "co": "Sweden"}, {"n": "Ciudad Juárez", "p": 1512450, "c": "North America", "co": "Mexico"}, {"n": "Cần Thơ", "p": 1507187, "c": "Asia", "co": "Vietnam"}, {"n": "Khulna", "p": 1500689, "c": "Asia", "co": "Bangladesh"}, {"n": "Belém", "p": 1499641, "c": "South America", "co": "Brazil"}, {"n": "Yekaterinburg", "p": 1495066, "c": "Europe", "co": "Russia"}, {"n": "Porto Alegre", "p": 1488252, "c": "South America", "co": "Brazil"}, {"n": "Yinchuan", "p": 1487579, "c": "Asia", "co": "China"}, {"n": "Manhattan", "p": 1487536, "c": "North America", "co": "United States"}, {"n": "Nashik", "p": 1486053, "c": "Asia", "co": "India"}, {"n": "Asunción", "p": 1482200, "c": "South America", "co": "Paraguay"}, {"n": "Yiwu", "p": 1481384, "c": "Asia", "co": "China"}, {"n": "Zapopan", "p": 1476491, "c": "North America", "co": "Mexico"}, {"n": "Daejeon", "p": 1470336, "c": "Asia", "co": "South Korea"}, {"n": "Adelaide", "p": 1469163, "c": "Oceania", "co": "Australia"}, {"n": "Quanzhou", "p": 1469157, "c": "Asia", "co": "China"}, {"n": "Madurai", "p": 1465625, "c": "Asia", "co": "India"}, {"n": "Jinhua", "p": 1463990, "c": "Asia", "co": "China"}, {"n": "Kyoto", "p": 1463723, "c": "Asia", "co": "Japan"}, {"n": "Cixi", "p": 1457510, "c": "Asia", "co": "China"}, {"n": "Changde", "p": 1457419, "c": "Asia", "co": "China"}, {"n": "Kuala Lumpur", "p": 1453975, "c": "Asia", "co": "Malaysia"}, {"n": "Kaifeng", "p": 1451741, "c": "Asia", "co": "China"}, {"n": "Anshan", "p": 1450000, "c": "Asia", "co": "China"}, {"n": "Karaj", "p": 1448075, "c": "Asia", "co": "Iran"}, {"n": "Kathmandu", "p": 1442271, "c": "Asia", "co": "Nepal"}, {"n": "Baoji", "p": 1437802, "c": "Asia", "co": "China"}, {"n": "Suqian", "p": 1437685, "c": "Asia", "co": "China"}, {"n": "Liuzhou", "p": 1436599, "c": "Asia", "co": "China"}, {"n": "Tirunelveli", "p": 1435844, "c": "Asia", "co": "India"}, {"n": "Kayseri", "p": 1434357, "c": "Asia", "co": "Turkey"}, {"n": "Kharkiv", "p": 1433886, "c": "Europe", "co": "Ukraine"}, {"n": "Konya", "p": 1433861, "c": "Asia", "co": "Turkey"}, {"n": "Zhangjiagang", "p": 1432044, "c": "Asia", "co": "China"}, {"n": "Agra", "p": 1430055, "c": "Asia", "co": "India"}, {"n": "Tabriz", "p": 1424641, "c": "Asia", "co": "Iran"}, {"n": "Makassar", "p": 1423877, "c": "Asia", "co": "Indonesia"}, {"n": "Jinjiang", "p": 1416151, "c": "Asia", "co": "China"}, {"n": "Faridabad", "p": 1414050, "c": "Asia", "co": "India"}, {"n": "Gwangju", "p": 1411357, "c": "Asia", "co": "South Korea"}, {"n": "Bozhou", "p": 1409436, "c": "Asia", "co": "China"}, {"n": "Qujing", "p": 1408500, "c": "Asia", "co": "China"}, {"n": "South Tangerang", "p": 1404785, "c": "Asia", "co": "Indonesia"}, {"n": "San Diego", "p": 1404452, "c": "North America", "co": "United States"}, {"n": "Zhanjiang", "p": 1400709, "c": "Asia", "co": "China"}, {"n": "Fushun", "p": 1400646, "c": "Asia", "co": "China"}, {"n": "Rājkot", "p": 1390640, "c": "Asia", "co": "India"}, {"n": "Luoyang", "p": 1390581, "c": "Asia", "co": "China"}, {"n": "Guadalajara", "p": 1385629, "c": "North America", "co": "Mexico"}, {"n": "The Bronx", "p": 1385108, "c": "North America", "co": "United States"}, {"n": "Guankou", "p": 1380000, "c": "Asia", "co": "China"}, {"n": "Huế", "p": 1380000, "c": "Asia", "co": "Vietnam"}, {"n": "Milan", "p": 1371498, "c": "Europe", "co": "Italy"}, {"n": "Najafgarh", "p": 1365000, "c": "Asia", "co": "India"}, {"n": "N'Djamena", "p": 1359526, "c": "Africa", "co": "Chad"}, {"n": "Handan", "p": 1358318, "c": "Asia", "co": "China"}, {"n": "Bannu", "p": 1357890, "c": "Asia", "co": "Pakistan"}, {"n": "Yichang", "p": 1350150, "c": "Asia", "co": "China"}, {"n": "Antananarivo", "p": 1349501, "c": "Africa", "co": "Madagascar"}, {"n": "Heze", "p": 1346717, "c": "Asia", "co": "China"}, {"n": "Antalya", "p": 1344000, "c": "Asia", "co": "Turkey"}, {"n": "Abobo", "p": 1340083, "c": "Africa", "co": "Ivory Coast"}, {"n": "Jamshedpur", "p": 1339438, "c": "Asia", "co": "India"}, {"n": "Douala", "p": 1338082, "c": "Africa", "co": "Cameroon"}, {"n": "Basrah", "p": 1326564, "c": "Asia", "co": "Iraq"}, {"n": "Dallas", "p": 1326087, "c": "North America", "co": "United States"}, {"n": "Saitama", "p": 1324854, "c": "Asia", "co": "Japan"}, {"n": "Gorakhpur", "p": 1324570, "c": "Asia", "co": "India"}, {"n": "Niamey", "p": 1323691, "c": "Africa", "co": "Niger"}, {"n": "Liupanshui", "p": 1320825, "c": "Asia", "co": "China"}, {"n": "Maoming", "p": 1307802, "c": "Asia", "co": "China"}, {"n": "Calgary", "p": 1306784, "c": "North America", "co": "Canada"}, {"n": "Tripoli", "p": 1302947, "c": "Africa", "co": "Libya"}, {"n": "Callao", "p": 1300000, "c": "South America", "co": "Peru"}, {"n": "Madinah", "p": 1300000, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Yaoundé", "p": 1299369, "c": "Africa", "co": "Cameroon"}, {"n": "Qinzhou", "p": 1296300, "c": "Asia", "co": "China"}, {"n": "Luohe", "p": 1294974, "c": "Asia", "co": "China"}, {"n": "Xiangyang", "p": 1294733, "c": "Asia", "co": "China"}, {"n": "Yangjiang", "p": 1292987, "c": "Asia", "co": "China"}, {"n": "Yixing", "p": 1285785, "c": "Asia", "co": "China"}, {"n": "Pimpri", "p": 1284606, "c": "Asia", "co": "India"}, {"n": "Da Nang", "p": 1276000, "c": "Asia", "co": "Vietnam"}, {"n": "Amman", "p": 1275857, "c": "Asia", "co": "Jordan"}, {"n": "Budta", "p": 1273715, "c": "Asia", "co": "Philippines"}, {"n": "Belgrade", "p": 1273651, "c": "Europe", "co": "Serbia"}, {"n": "Biên Hòa", "p": 1272235, "c": "Asia", "co": "Vietnam"}, {"n": "Montevideo", "p": 1270737, "c": "South America", "co": "Uruguay"}, {"n": "Xuchang", "p": 1265536, "c": "Asia", "co": "China"}, {"n": "Kalyān", "p": 1262255, "c": "Asia", "co": "India"}, {"n": "Zigong", "p": 1262064, "c": "Asia", "co": "China"}, {"n": "Munich", "p": 1260391, "c": "Europe", "co": "Germany"}, {"n": "Nizhniy Novgorod", "p": 1259013, "c": "Europe", "co": "Russia"}, {"n": "Jepara", "p": 1257912, "c": "Asia", "co": "Indonesia"}, {"n": "Maputo", "p": 1254837, "c": "Africa", "co": "Mozambique"}, {"n": "Xuzhou", "p": 1253991, "c": "Asia", "co": "China"}, {"n": "Dammam", "p": 1252523, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Neijiang", "p": 1251095, "c": "Asia", "co": "China"}, {"n": "Shiraz", "p": 1249942, "c": "Asia", "co": "Iran"}, {"n": "Heshan", "p": 1249807, "c": "Asia", "co": "China"}, {"n": "Dombivali", "p": 1247327, "c": "Asia", "co": "India"}, {"n": "Kananga", "p": 1247168, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Kazan", "p": 1243500, "c": "Europe", "co": "Russia"}, {"n": "Jining", "p": 1241012, "c": "Asia", "co": "China"}, {"n": "Barquisimeto", "p": 1240714, "c": "South America", "co": "Venezuela"}, {"n": "Shubrā al Khaymah", "p": 1240289, "c": "Africa", "co": "Egypt"}, {"n": "Port-au-Prince", "p": 1234742, "c": "North America", "co": "Haiti"}, {"n": "Xinyang", "p": 1230042, "c": "Asia", "co": "China"}, {"n": "Liaocheng", "p": 1229768, "c": "Asia", "co": "China"}, {"n": "Jinzhong", "p": 1226617, "c": "Asia", "co": "China"}, {"n": "Meerut", "p": 1223184, "c": "Asia", "co": "India"}, {"n": "Virār", "p": 1222390, "c": "Asia", "co": "India"}, {"n": "Nowrangapur", "p": 1220946, "c": "Asia", "co": "India"}, {"n": "Karbala", "p": 1218732, "c": "Asia", "co": "Iraq"}, {"n": "Changzhi", "p": 1214940, "c": "Asia", "co": "China"}, {"n": "Tianshui", "p": 1212791, "c": "Asia", "co": "China"}, {"n": "Mombasa", "p": 1208333, "c": "Africa", "co": "Kenya"}, {"n": "Mandalay", "p": 1208099, "c": "Asia", "co": "Myanmar"}, {"n": "Srinagar", "p": 1206419, "c": "Asia", "co": "India"}, {"n": "Barranquilla", "p": 1206319, "c": "South America", "co": "Colombia"}, {"n": "Chelyabinsk", "p": 1202371, "c": "Europe", "co": "Russia"}, {"n": "Mérida", "p": 1201000, "c": "North America", "co": "Mexico"}, {"n": "Hiroshima", "p": 1200754, "c": "Asia", "co": "Japan"}, {"n": "Santiago de los Caballeros", "p": 1200000, "c": "North America", "co": "Dominican Republic"}, {"n": "Shymkent", "p": 1200000, "c": "Asia", "co": "Kazakhstan"}, {"n": "Weinan", "p": 1199290, "c": "Asia", "co": "China"}, {"n": "Ghāziābād", "p": 1199191, "c": "Asia", "co": "India"}, {"n": "Matola", "p": 1198988, "c": "Africa", "co": "Mozambique"}, {"n": "Dhanbad", "p": 1196214, "c": "Asia", "co": "India"}, {"n": "Hong Kong Island", "p": 1195529, "c": "Asia", "co": "Hong Kong"}, {"n": "Suwon", "p": 1195045, "c": "Asia", "co": "South Korea"}, {"n": "Fes", "p": 1191905, "c": "Africa", "co": "Morocco"}, {"n": "Gustavo Adolfo Madero", "p": 1185772, "c": "North America", "co": "Mexico"}, {"n": "Nouakchott", "p": 1184530, "c": "Africa", "co": "Mauritania"}, {"n": "Kisangani", "p": 1181788, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Jiaxing", "p": 1180000, "c": "Asia", "co": "China"}, {"n": "Aurangabad", "p": 1175116, "c": "Asia", "co": "India"}, {"n": "Omsk", "p": 1172070, "c": "Europe", "co": "Russia"}, {"n": "Guarulhos", "p": 1169577, "c": "South America", "co": "Brazil"}, {"n": "Bandar Lampung", "p": 1166066, "c": "Asia", "co": "Indonesia"}, {"n": "Prague", "p": 1165581, "c": "Europe", "co": "Czechia"}, {"n": "Varanasi", "p": 1164404, "c": "Asia", "co": "India"}, {"n": "Batam", "p": 1164352, "c": "Asia", "co": "Indonesia"}, {"n": "Jiujiang", "p": 1164268, "c": "Asia", "co": "China"}, {"n": "Samara", "p": 1163399, "c": "Europe", "co": "Russia"}, {"n": "Aba", "p": 1160000, "c": "Africa", "co": "Nigeria"}, {"n": "Amritsar", "p": 1159227, "c": "Asia", "co": "India"}, {"n": "Birmingham", "p": 1157603, "c": "Europe", "co": "United Kingdom"}, {"n": "Copenhagen", "p": 1153615, "c": "Europe", "co": "Denmark"}, {"n": "Sofia", "p": 1152556, "c": "Europe", "co": "Bulgaria"}, {"n": "Anyang", "p": 1146839, "c": "Asia", "co": "China"}, {"n": "Luohu District", "p": 1143801, "c": "Asia", "co": "China"}, {"n": "Vijayawada", "p": 1143232, "c": "Asia", "co": "India"}, {"n": "Yerevan", "p": 1141100, "c": "Asia", "co": "Armenia"}, {"n": "Bijie", "p": 1137383, "c": "Asia", "co": "China"}, {"n": "Monterrey", "p": 1135512, "c": "North America", "co": "Mexico"}, {"n": "Kigali", "p": 1132686, "c": "Africa", "co": "Rwanda"}, {"n": "Rostov-na-Donu", "p": 1130305, "c": "Europe", "co": "Russia"}, {"n": "Zhuzhou", "p": 1129687, "c": "Asia", "co": "China"}, {"n": "Bogor", "p": 1127408, "c": "Asia", "co": "Indonesia"}, {"n": "Malingao", "p": 1121974, "c": "Asia", "co": "Philippines"}, {"n": "Touba", "p": 1120824, "c": "Africa", "co": "Senegal"}, {"n": "Ufa", "p": 1120547, "c": "Europe", "co": "Russia"}, {"n": "Ranchi", "p": 1120374, "c": "Asia", "co": "India"}, {"n": "Baku", "p": 1116513, "c": "Asia", "co": "Azerbaijan"}, {"n": "Shangrao", "p": 1116486, "c": "Asia", "co": "China"}, {"n": "Lilongwe", "p": 1115815, "c": "Africa", "co": "Malawi"}, {"n": "Huaibei", "p": 1113321, "c": "Asia", "co": "China"}, {"n": "Maiduguri", "p": 1110000, "c": "Africa", "co": "Nigeria"}, {"n": "Meishan", "p": 1107742, "c": "Asia", "co": "China"}, {"n": "Ciudad Nezahualcoyotl", "p": 1104585, "c": "North America", "co": "Mexico"}, {"n": "Mwanza", "p": 1104521, "c": "Africa", "co": "Tanzania"}, {"n": "Ulsan", "p": 1098728, "c": "Asia", "co": "South Korea"}, {"n": "Sendai", "p": 1096704, "c": "Asia", "co": "Japan"}, {"n": "Krasnoyarsk", "p": 1090811, "c": "Europe", "co": "Russia"}, {"n": "Guigang", "p": 1086327, "c": "Asia", "co": "China"}, {"n": "Pekanbaru", "p": 1085000, "c": "Asia", "co": "Indonesia"}, {"n": "Oslo", "p": 1082575, "c": "Europe", "co": "Norway"}, {"n": "Jabalpur", "p": 1081677, "c": "Asia", "co": "India"}, {"n": "Ilorin", "p": 1080000, "c": "Africa", "co": "Nigeria"}, {"n": "Aden", "p": 1079670, "c": "Asia", "co": "Yemen"}, {"n": "Hengyang", "p": 1075516, "c": "Asia", "co": "China"}, {"n": "Goyang-si", "p": 1074784, "c": "Asia", "co": "South Korea"}, {"n": "Prayagraj", "p": 1073438, "c": "Asia", "co": "India"}, {"n": "Visakhapatnam", "p": 1063178, "c": "Asia", "co": "India"}, {"n": "Yulin", "p": 1056743, "c": "Asia", "co": "China"}, {"n": "Jodhpur", "p": 1056191, "c": "Asia", "co": "India"}, {"n": "Gwalior", "p": 1054420, "c": "Asia", "co": "India"}, {"n": "Jingzhou", "p": 1052282, "c": "Asia", "co": "China"}, {"n": "Port Elizabeth", "p": 1050078, "c": "Africa", "co": "South Africa"}, {"n": "Tbilisi", "p": 1049498, "c": "Asia", "co": "Georgia"}, {"n": "Voronezh", "p": 1047549, "c": "Europe", "co": "Russia"}, {"n": "Xinxiang", "p": 1047088, "c": "Asia", "co": "China"}, {"n": "Yichun", "p": 1045952, "c": "Asia", "co": "China"}, {"n": "Sokoto", "p": 1040000, "c": "Africa", "co": "Nigeria"}, {"n": "Jos", "p": 1040000, "c": "Africa", "co": "Nigeria"}, {"n": "Tangier", "p": 1035141, "c": "Africa", "co": "Morocco"}, {"n": "Teni", "p": 1034724, "c": "Asia", "co": "India"}, {"n": "Xianyang", "p": 1034081, "c": "Asia", "co": "China"}, {"n": "Mexicali", "p": 1032686, "c": "North America", "co": "Mexico"}, {"n": "Pointe-Noire", "p": 1032000, "c": "Africa", "co": "Republic of the Congo"}, {"n": "Maceió", "p": 1031597, "c": "South America", "co": "Brazil"}, {"n": "Campinas", "p": 1031554, "c": "South America", "co": "Brazil"}, {"n": "Sanya", "p": 1031396, "c": "Asia", "co": "China"}, {"n": "Rangpur", "p": 1031388, "c": "Asia", "co": "Bangladesh"}, {"n": "Kirkuk", "p": 1031000, "c": "Asia", "co": "Iraq"}, {"n": "Comilla", "p": 1030000, "c": "Asia", "co": "Bangladesh"}, {"n": "Shaoguan", "p": 1028460, "c": "Asia", "co": "China"}, {"n": "Howrah", "p": 1027672, "c": "Asia", "co": "India"}, {"n": "Raipur", "p": 1027264, "c": "Asia", "co": "India"}, {"n": "Changwon", "p": 1025702, "c": "Asia", "co": "South Korea"}, {"n": "Longyan", "p": 1025087, "c": "Asia", "co": "China"}, {"n": "Dublin", "p": 1024027, "c": "Europe", "co": "Ireland"}, {"n": "Tiruchirappalli", "p": 1022518, "c": "Asia", "co": "India"}, {"n": "Yongzhou", "p": 1020715, "c": "Asia", "co": "China"}, {"n": "Brussels", "p": 1019022, "c": "Europe", "co": "Belgium"}, {"n": "Ottawa", "p": 1017449, "c": "North America", "co": "Canada"}, {"n": "Huzhou", "p": 1015937, "c": "Asia", "co": "China"}, {"n": "Odesa", "p": 1015826, "c": "Europe", "co": "Ukraine"}, {"n": "Volgograd", "p": 1013533, "c": "Europe", "co": "Russia"}, {"n": "Khartoum North", "p": 1012211, "c": "Africa", "co": "Sudan"}, {"n": "Edmonton", "p": 1010899, "c": "North America", "co": "Canada"}, {"n": "Wuwei", "p": 1010295, "c": "Asia", "co": "China"}, {"n": "Jacksonville", "p": 1009833, "c": "North America", "co": "United States"}, {"n": "Arequipa", "p": 1008290, "c": "South America", "co": "Peru"}, {"n": "Fort Worth", "p": 1008106, "c": "North America", "co": "United States"}, {"n": "Hanzhong", "p": 1006557, "c": "Asia", "co": "China"}, {"n": "Hezhou", "p": 1005490, "c": "Asia", "co": "China"}, {"n": "Kota", "p": 1001694, "c": "Asia", "co": "India"}, {"n": "Zhu Cheng City", "p": 1000000, "c": "Asia", "co": "China"}, {"n": "Shivaji Nagar", "p": 1000000, "c": "Asia", "co": "India"}, {"n": "Dongying", "p": 998968, "c": "Asia", "co": "China"}, {"n": "Luzhou", "p": 998900, "c": "Asia", "co": "China"}, {"n": "San Jose", "p": 997368, "c": "North America", "co": "United States"}, {"n": "Sholapur", "p": 997281, "c": "Asia", "co": "India"}, {"n": "Marrakesh", "p": 995871, "c": "Africa", "co": "Morocco"}, {"n": "Guatemala City", "p": 994938, "c": "North America", "co": "Guatemala"}, {"n": "Meizhou", "p": 992351, "c": "Asia", "co": "China"}, {"n": "Yueyang", "p": 991465, "c": "Asia", "co": "China"}, {"n": "Laiwu", "p": 989535, "c": "Asia", "co": "China"}, {"n": "Benxi", "p": 987717, "c": "Asia", "co": "China"}, {"n": "Perm", "p": 982419, "c": "Europe", "co": "Russia"}, {"n": "Zaria", "p": 980000, "c": "Africa", "co": "Nigeria"}, {"n": "Chiba", "p": 979768, "c": "Asia", "co": "Japan"}, {"n": "Pingdingshan", "p": 979130, "c": "Asia", "co": "China"}, {"n": "Ciudad Guayana", "p": 978202, "c": "South America", "co": "Venezuela"}, {"n": "Zamboanga", "p": 977234, "c": "Asia", "co": "Philippines"}, {"n": "Sargodha", "p": 975886, "c": "Asia", "co": "Pakistan"}, {"n": "Austin", "p": 974447, "c": "North America", "co": "United States"}, {"n": "Managua", "p": 973087, "c": "North America", "co": "Nicaragua"}, {"n": "Bengbu", "p": 972784, "c": "Asia", "co": "China"}, {"n": "Salé", "p": 972299, "c": "Africa", "co": "Morocco"}, {"n": "Jerusalem", "p": 971800, "c": "Asia", "co": "Israel"}, {"n": "Chandigarh", "p": 970602, "c": "Asia", "co": "India"}, {"n": "Dnipro", "p": 968502, "c": "Europe", "co": "Ukraine"}, {"n": "Cebu City", "p": 964169, "c": "Asia", "co": "Philippines"}, {"n": "Köln", "p": 963395, "c": "Europe", "co": "Germany"}, {"n": "Tiruppur", "p": 963173, "c": "Asia", "co": "India"}, {"n": "Guwahati", "p": 962334, "c": "Asia", "co": "India"}, {"n": "Xiangtan", "p": 959303, "c": "Asia", "co": "China"}, {"n": "Linfen", "p": 959198, "c": "Asia", "co": "China"}, {"n": "Victoria", "p": 956800, "c": "Asia", "co": "Hong Kong"}, {"n": "Zhenjiang", "p": 950516, "c": "Asia", "co": "China"}, {"n": "Enugu", "p": 950000, "c": "Africa", "co": "Nigeria"}, {"n": "Rosario", "p": 948312, "c": "South America", "co": "Argentina"}, {"n": "Sulţānah", "p": 946697, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Hubballi", "p": 943788, "c": "Asia", "co": "India"}, {"n": "Kitakyushu", "p": 940978, "c": "Asia", "co": "Japan"}, {"n": "Taiz", "p": 940600, "c": "Asia", "co": "Yemen"}, {"n": "Setagaya", "p": 940071, "c": "Asia", "co": "Japan"}, {"n": "Kingston", "p": 937700, "c": "North America", "co": "Jamaica"}, {"n": "Baoshan", "p": 935618, "c": "Asia", "co": "China"}, {"n": "Chihuahua", "p": 925762, "c": "North America", "co": "Mexico"}, {"n": "Nay Pyi Taw", "p": 925000, "c": "Asia", "co": "Myanmar"}, {"n": "Mysuru", "p": 920550, "c": "Asia", "co": "India"}, {"n": "Trujillo", "p": 919899, "c": "South America", "co": "Peru"}, {"n": "Salem", "p": 917414, "c": "Asia", "co": "India"}, {"n": "São Luís", "p": 917237, "c": "South America", "co": "Brazil"}, {"n": "Seongnam-si", "p": 914832, "c": "Asia", "co": "South Korea"}, {"n": "Cartagena", "p": 914552, "c": "South America", "co": "Colombia"}, {"n": "Columbus", "p": 913175, "c": "North America", "co": "United States"}, {"n": "Sialkot", "p": 911817, "c": "Asia", "co": "Pakistan"}, {"n": "Charlotte", "p": 911311, "c": "North America", "co": "United States"}, {"n": "Laibin", "p": 910282, "c": "Asia", "co": "China"}, {"n": "Warri", "p": 910000, "c": "Africa", "co": "Nigeria"}, {"n": "Naples", "p": 909048, "c": "Europe", "co": "Italy"}, {"n": "Padang", "p": 909040, "c": "Asia", "co": "Indonesia"}, {"n": "Xiaogan", "p": 908266, "c": "Asia", "co": "China"}, {"n": "Campo Grande", "p": 906092, "c": "South America", "co": "Brazil"}, {"n": "Ziyang", "p": 905729, "c": "Asia", "co": "China"}, {"n": "Bobo-Dioulasso", "p": 904920, "c": "Africa", "co": "Burkina Faso"}, {"n": "Bahawalpur", "p": 903795, "c": "Asia", "co": "Pakistan"}, {"n": "Quzhou", "p": 902767, "c": "Asia", "co": "China"}, {"n": "Blantyre", "p": 902588, "c": "Africa", "co": "Malawi"}, {"n": "Donetsk", "p": 901645, "c": "Europe", "co": "Ukraine"}, {"n": "Abū Ghurayb", "p": 900000, "c": "Asia", "co": "Iraq"}, {"n": "Qom", "p": 900000, "c": "Asia", "co": "Iran"}, {"n": "Bishkek", "p": 900000, "c": "Asia", "co": "Kyrgyzstan"}, {"n": "Zaozhuang", "p": 899753, "c": "Asia", "co": "China"}, {"n": "Krasnodar", "p": 899541, "c": "Europe", "co": "Russia"}, {"n": "Natal", "p": 896708, "c": "South America", "co": "Brazil"}, {"n": "Pingxiang", "p": 893550, "c": "Asia", "co": "China"}, {"n": "Indianapolis", "p": 887642, "c": "North America", "co": "United States"}, {"n": "Antipolo", "p": 887399, "c": "Asia", "co": "Philippines"}, {"n": "Gurugram", "p": 886519, "c": "Asia", "co": "India"}, {"n": "Bhubaneswar", "p": 885363, "c": "Asia", "co": "India"}, {"n": "Zhoushan", "p": 882932, "c": "Asia", "co": "China"}, {"n": "Qiqihar", "p": 882364, "c": "Asia", "co": "China"}, {"n": "Klang", "p": 879867, "c": "Asia", "co": "Malaysia"}, {"n": "As Sulaymānīyah", "p": 878146, "c": "Asia", "co": "Iraq"}, {"n": "Puning", "p": 874954, "c": "Asia", "co": "China"}, {"n": "Pikine", "p": 874062, "c": "Africa", "co": "Senegal"}, {"n": "Bhiwandi", "p": 874032, "c": "Asia", "co": "India"}, {"n": "Soshanguve", "p": 872309, "c": "Africa", "co": "South Africa"}, {"n": "Teresina", "p": 871126, "c": "South America", "co": "Brazil"}, {"n": "Marseille", "p": 870731, "c": "Europe", "co": "France"}, {"n": "Ankang", "p": 870126, "c": "Asia", "co": "China"}, {"n": "Jalandhar", "p": 868929, "c": "Asia", "co": "India"}, {"n": "Langfang", "p": 868066, "c": "Asia", "co": "China"}, {"n": "Jiaozuo", "p": 865413, "c": "Asia", "co": "China"}, {"n": "Rohini", "p": 860000, "c": "Asia", "co": "India"}, {"n": "Wanxian", "p": 859662, "c": "Asia", "co": "China"}, {"n": "Johor Bahru", "p": 858118, "c": "Asia", "co": "Malaysia"}, {"n": "Cheongju-si", "p": 853938, "c": "Asia", "co": "South Korea"}, {"n": "Kanayannur", "p": 851406, "c": "Asia", "co": "India"}, {"n": "Tegucigalpa", "p": 850848, "c": "North America", "co": "Honduras"}, {"n": "Bucheon-si", "p": 850731, "c": "Asia", "co": "South Korea"}, {"n": "Thanh Hóa", "p": 850000, "c": "Asia", "co": "Vietnam"}, {"n": "Turin", "p": 847287, "c": "Europe", "co": "Italy"}, {"n": "Malang", "p": 847182, "c": "Asia", "co": "Indonesia"}, {"n": "Al Ain City", "p": 846747, "c": "Asia", "co": "United Arab Emirates"}, {"n": "Libreville", "p": 846090, "c": "Africa", "co": "Gabon"}, {"n": "Saratov", "p": 844858, "c": "Europe", "co": "Russia"}, {"n": "Ulan Bator", "p": 844818, "c": "Asia", "co": "Mongolia"}, {"n": "Weihai", "p": 844310, "c": "Asia", "co": "China"}, {"n": "Takeo", "p": 843931, "c": "Asia", "co": "Cambodia"}, {"n": "Cochabamba", "p": 841276, "c": "South America", "co": "Bolivia"}, {"n": "Ahvaz", "p": 841145, "c": "Asia", "co": "Iran"}, {"n": "Zhabei", "p": 840000, "c": "Asia", "co": "China"}, {"n": "Xinyu", "p": 839488, "c": "Asia", "co": "China"}, {"n": "Pietermaritzburg", "p": 839327, "c": "Africa", "co": "South Africa"}, {"n": "Yibin", "p": 836340, "c": "Asia", "co": "China"}, {"n": "Naucalpan de Juárez", "p": 834434, "c": "North America", "co": "Mexico"}, {"n": "Kampung Baru Subang", "p": 833571, "c": "Asia", "co": "Malaysia"}, {"n": "Bouaké", "p": 832371, "c": "Africa", "co": "Ivory Coast"}, {"n": "Samarinda", "p": 831460, "c": "Asia", "co": "Indonesia"}, {"n": "Taicang", "p": 831113, "c": "Asia", "co": "China"}, {"n": "San Francisco", "p": 827526, "c": "North America", "co": "United States"}, {"n": "Sakai", "p": 826161, "c": "Asia", "co": "Japan"}, {"n": "Valencia", "p": 825948, "c": "Europe", "co": "Spain"}, {"n": "Nova Iguaçu", "p": 823302, "c": "South America", "co": "Brazil"}, {"n": "Chenzhou", "p": 822534, "c": "Asia", "co": "China"}, {"n": "Duque de Caxias", "p": 818329, "c": "South America", "co": "Brazil"}, {"n": "João Pessoa", "p": 817511, "c": "South America", "co": "Brazil"}, {"n": "Bukavu", "p": 816811, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Barcelona", "p": 815141, "c": "South America", "co": "Venezuela"}, {"n": "Bangui", "p": 812407, "c": "Africa", "co": "Central African Republic"}, {"n": "Hermosillo", "p": 812229, "c": "North America", "co": "Mexico"}, {"n": "Bhayandar", "p": 809378, "c": "Asia", "co": "India"}, {"n": "Culiacán", "p": 808416, "c": "North America", "co": "Mexico"}, {"n": "Petaling Jaya", "p": 807879, "c": "Asia", "co": "Malaysia"}, {"n": "Malatya", "p": 806156, "c": "Asia", "co": "Turkey"}, {"n": "Anqing", "p": 804493, "c": "Asia", "co": "China"}, {"n": "Oran", "p": 803329, "c": "Africa", "co": "Algeria"}, {"n": "Freetown", "p": 802639, "c": "Africa", "co": "Sierra Leone"}, {"n": "San Pedro Sula", "p": 801259, "c": "North America", "co": "Honduras"}, {"n": "Narela", "p": 800000, "c": "Asia", "co": "India"}, {"n": "Xingtai", "p": 798770, "c": "Asia", "co": "China"}, {"n": "Niigata", "p": 797591, "c": "Asia", "co": "Japan"}, {"n": "Muscat", "p": 797000, "c": "Asia", "co": "Oman"}, {"n": "Zarqa", "p": 792665, "c": "Asia", "co": "Jordan"}, {"n": "Çankaya", "p": 792189, "c": "Asia", "co": "Turkey"}, {"n": "Hamamatsu", "p": 791707, "c": "Asia", "co": "Japan"}, {"n": "Kolwezi", "p": 790248, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Vinh", "p": 790000, "c": "Asia", "co": "Vietnam"}, {"n": "Eskişehir", "p": 789023, "c": "Asia", "co": "Turkey"}, {"n": "Thiruvananthapuram", "p": 788271, "c": "Asia", "co": "India"}, {"n": "Pasragad Branch", "p": 787878, "c": "Asia", "co": "Iran"}, {"n": "Zhaotong", "p": 787845, "c": "Asia", "co": "China"}, {"n": "Panzhihua", "p": 787177, "c": "Asia", "co": "China"}, {"n": "Chuzhou", "p": 782671, "c": "Asia", "co": "China"}, {"n": "Seattle", "p": 780995, "c": "North America", "co": "United States"}, {"n": "Port Said", "p": 780515, "c": "Africa", "co": "Egypt"}, {"n": "Cúcuta", "p": 777106, "c": "South America", "co": "Colombia"}, {"n": "Homs", "p": 775404, "c": "Asia", "co": "Syria"}, {"n": "Xuancheng", "p": 774332, "c": "Asia", "co": "China"}, {"n": "Ibb", "p": 771514, "c": "Asia", "co": "Yemen"}, {"n": "Nampula", "p": 770379, "c": "Africa", "co": "Mozambique"}, {"n": "Shangyu", "p": 770000, "c": "Asia", "co": "China"}, {"n": "Bujumbura", "p": 769317, "c": "Africa", "co": "Burundi"}, {"n": "Tyumen", "p": 768358, "c": "Europe", "co": "Russia"}, {"n": "Erzurum", "p": 767848, "c": "Asia", "co": "Turkey"}, {"n": "Anshun", "p": 765313, "c": "Asia", "co": "China"}, {"n": "Dodoma", "p": 765179, "c": "Africa", "co": "Tanzania"}, {"n": "Rajshahi", "p": 763580, "c": "Asia", "co": "Bangladesh"}, {"n": "Dera Ismail Khan", "p": 763195, "c": "Asia", "co": "Pakistan"}, {"n": "Wuzhou", "p": 761948, "c": "Asia", "co": "China"}, {"n": "Ipoh", "p": 759952, "c": "Asia", "co": "Malaysia"}, {"n": "Qinhuangdao", "p": 759718, "c": "Asia", "co": "China"}, {"n": "Benghazi", "p": 757490, "c": "Africa", "co": "Libya"}, {"n": "Kraków", "p": 755050, "c": "Europe", "co": "Poland"}, {"n": "Alīgarh", "p": 753207, "c": "Asia", "co": "India"}, {"n": "Shaoyang", "p": 753194, "c": "Asia", "co": "China"}, {"n": "Winnipeg", "p": 749607, "c": "North America", "co": "Canada"}, {"n": "Ōta", "p": 748081, "c": "Asia", "co": "Japan"}, {"n": "Andijon", "p": 747800, "c": "Asia", "co": "Uzbekistan"}, {"n": "Bareilly", "p": 745435, "c": "Asia", "co": "India"}, {"n": "Buraydah", "p": 745353, "c": "Asia", "co": "Saudi Arabia"}, {"n": "São Bernardo do Campo", "p": 743372, "c": "South America", "co": "Brazil"}, {"n": "Hegang", "p": 743307, "c": "Asia", "co": "China"}, {"n": "Morelia", "p": 743275, "c": "North America", "co": "Mexico"}, {"n": "Riga", "p": 742572, "c": "Europe", "co": "Latvia"}, {"n": "Tasikmalaya", "p": 741760, "c": "Asia", "co": "Indonesia"}, {"n": "Amsterdam", "p": 741636, "c": "Europe", "co": "The Netherlands"}, {"n": "Shah Alam", "p": 740750, "c": "Asia", "co": "Malaysia"}, {"n": "Shizuishan", "p": 739400, "c": "Asia", "co": "China"}, {"n": "Kumamoto", "p": 738907, "c": "Asia", "co": "Japan"}, {"n": "Oyo", "p": 736072, "c": "Africa", "co": "Nigeria"}, {"n": "Torreón", "p": 735340, "c": "North America", "co": "Mexico"}, {"n": "Deyang", "p": 735070, "c": "Asia", "co": "China"}, {"n": "Abeokuta", "p": 735000, "c": "Africa", "co": "Nigeria"}, {"n": "Al Ḩudaydah", "p": 734699, "c": "Asia", "co": "Yemen"}, {"n": "Yangquan", "p": 731228, "c": "Asia", "co": "China"}, {"n": "Akure", "p": 730000, "c": "Africa", "co": "Nigeria"}, {"n": "São José dos Campos", "p": 729737, "c": "South America", "co": "Brazil"}, {"n": "Denver", "p": 729019, "c": "North America", "co": "United States"}, {"n": "Osasco", "p": 728615, "c": "South America", "co": "Brazil"}, {"n": "Cagayan de Oro", "p": 728402, "c": "Asia", "co": "Philippines"}, {"n": "Ashgabat", "p": 727700, "c": "Asia", "co": "Turkmenistan"}, {"n": "Álvaro Obregón", "p": 726664, "c": "North America", "co": "Mexico"}, {"n": "Aihara", "p": 725493, "c": "Asia", "co": "Japan"}, {"n": "Evaton", "p": 725468, "c": "Africa", "co": "South Africa"}, {"n": "Denpasar", "p": 725314, "c": "Asia", "co": "Indonesia"}, {"n": "Muzaffarābād", "p": 725000, "c": "Asia", "co": "Pakistan"}, {"n": "Okayama", "p": 724691, "c": "Asia", "co": "Japan"}, {"n": "San Luis Potosí", "p": 722772, "c": "North America", "co": "Mexico"}, {"n": "Aguascalientes", "p": 722250, "c": "North America", "co": "Mexico"}, {"n": "Zhumadian", "p": 721670, "c": "Asia", "co": "China"}, {"n": "Morādābād", "p": 721139, "c": "Asia", "co": "India"}, {"n": "Sagamihara", "p": 720780, "c": "Asia", "co": "Japan"}, {"n": "Mississauga", "p": 717961, "c": "North America", "co": "Canada"}, {"n": "Lviv", "p": 717273, "c": "Europe", "co": "Ukraine"}, {"n": "Valenzuela", "p": 714978, "c": "Asia", "co": "Philippines"}, {"n": "Namangan", "p": 713220, "c": "Asia", "co": "Uzbekistan"}, {"n": "Ribeirão Preto", "p": 711825, "c": "South America", "co": "Brazil"}, {"n": "Zaporizhzhya", "p": 710052, "c": "Europe", "co": "Ukraine"}, {"n": "Zanzibar", "p": 709809, "c": "Africa", "co": "Tanzania"}, {"n": "Saltillo", "p": 709671, "c": "North America", "co": "Mexico"}, {"n": "Latakia", "p": 709000, "c": "Asia", "co": "Syria"}, {"n": "Subang Jaya", "p": 708296, "c": "Asia", "co": "Malaysia"}, {"n": "Warangal", "p": 704570, "c": "Asia", "co": "India"}, {"n": "Tolyatti", "p": 702879, "c": "Europe", "co": "Russia"}, {"n": "Jaboatão", "p": 702621, "c": "South America", "co": "Brazil"}, {"n": "Santo Domingo Oeste", "p": 701269, "c": "North America", "co": "Dominican Republic"}, {"n": "Santo Domingo Este", "p": 700000, "c": "North America", "co": "Dominican Republic"}, {"n": "Battagram", "p": 700000, "c": "Asia", "co": "Pakistan"}, {"n": "Suez", "p": 699541, "c": "Africa", "co": "Egypt"}, {"n": "Agadir", "p": 698310, "c": "Africa", "co": "Morocco"}, {"n": "Edogawe", "p": 697932, "c": "Asia", "co": "Japan"}, {"n": "General Santos", "p": 697315, "c": "Asia", "co": "Philippines"}, {"n": "Sarajevo", "p": 696731, "c": "Europe", "co": "Bosnia and Herzegovina"}, {"n": "Balikpapan", "p": 695287, "c": "Asia", "co": "Indonesia"}, {"n": "Adachi", "p": 695043, "c": "Asia", "co": "Japan"}, {"n": "Bauchi", "p": 693700, "c": "Africa", "co": "Nigeria"}, {"n": "Shizuoka", "p": 693389, "c": "Asia", "co": "Japan"}, {"n": "Tunis", "p": 693210, "c": "Africa", "co": "Tunisia"}, {"n": "Zhangjiakou", "p": 692602, "c": "Asia", "co": "China"}, {"n": "Serang", "p": 692101, "c": "Asia", "co": "Indonesia"}, {"n": "Paranaque City", "p": 689992, "c": "Asia", "co": "Philippines"}, {"n": "Washington", "p": 689545, "c": "North America", "co": "United States"}, {"n": "Nashville", "p": 689447, "c": "North America", "co": "United States"}, {"n": "Fuxin", "p": 689050, "c": "Asia", "co": "China"}, {"n": "Huangshi", "p": 688090, "c": "Asia", "co": "China"}, {"n": "Liaoyang", "p": 687890, "c": "Asia", "co": "China"}, {"n": "Beira", "p": 687764, "c": "Africa", "co": "Mozambique"}, {"n": "Sevilla", "p": 687488, "c": "Europe", "co": "Spain"}, {"n": "Sorocaba", "p": 687357, "c": "South America", "co": "Brazil"}, {"n": "Zaragoza", "p": 686986, "c": "Europe", "co": "Spain"}, {"n": "Baise", "p": 686078, "c": "Asia", "co": "China"}, {"n": "Situbondo", "p": 685967, "c": "Asia", "co": "Indonesia"}, {"n": "Binzhou", "p": 682717, "c": "Asia", "co": "China"}, {"n": "Oklahoma City", "p": 681054, "c": "North America", "co": "United States"}, {"n": "Yuncheng", "p": 680036, "c": "Asia", "co": "China"}, {"n": "Dezhou", "p": 679535, "c": "Asia", "co": "China"}, {"n": "Dushanbe", "p": 679400, "c": "Asia", "co": "Tajikistan"}, {"n": "Cotonou", "p": 679012, "c": "Africa", "co": "Benin"}, {"n": "El Paso", "p": 678815, "c": "North America", "co": "United States"}, {"n": "Guadalupe", "p": 673616, "c": "North America", "co": "Mexico"}, {"n": "Acapulco de Juárez", "p": 673479, "c": "North America", "co": "Mexico"}, {"n": "Guntur", "p": 670073, "c": "Asia", "co": "India"}, {"n": "Katsina", "p": 670000, "c": "Africa", "co": "Nigeria"}, {"n": "Sanmenxia", "p": 669307, "c": "Asia", "co": "China"}, {"n": "Madīnat an Naşr", "p": 668413, "c": "Africa", "co": "Egypt"}, {"n": "Tabuk", "p": 667000, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Kitwe", "p": 665961, "c": "Africa", "co": "Zambia"}, {"n": "Bulawayo", "p": 665952, "c": "Africa", "co": "Zimbabwe"}, {"n": "Mudanjiang", "p": 665915, "c": "Asia", "co": "China"}, {"n": "Aracaju", "p": 664908, "c": "South America", "co": "Brazil"}, {"n": "Athens", "p": 664046, "c": "Europe", "co": "Greece"}, {"n": "Zagreb", "p": 663592, "c": "Europe", "co": "Croatia"}, {"n": "Leshan", "p": 662814, "c": "Asia", "co": "China"}, {"n": "Santo André", "p": 662373, "c": "South America", "co": "Brazil"}, {"n": "Vancouver", "p": 662248, "c": "North America", "co": "Canada"}, {"n": "Rizhao", "p": 661943, "c": "Asia", "co": "China"}, {"n": "Helsinki", "p": 658864, "c": "Europe", "co": "Finland"}, {"n": "Cheonan", "p": 658831, "c": "Asia", "co": "South Korea"}, {"n": "Pontianak", "p": 658685, "c": "Asia", "co": "Indonesia"}, {"n": "Banjarmasin", "p": 657663, "c": "Asia", "co": "Indonesia"}, {"n": "Puducherry", "p": 657209, "c": "Asia", "co": "India"}, {"n": "Suining", "p": 656760, "c": "Asia", "co": "China"}, {"n": "Brampton", "p": 656480, "c": "North America", "co": "Canada"}, {"n": "Boston", "p": 653833, "c": "North America", "co": "United States"}, {"n": "Tlalnepantla", "p": 653410, "c": "North America", "co": "Mexico"}, {"n": "Portland", "p": 652503, "c": "North America", "co": "United States"}, {"n": "Tlaquepaque", "p": 650123, "c": "North America", "co": "Mexico"}, {"n": "Frankfurt am Main", "p": 650000, "c": "Europe", "co": "Germany"}, {"n": "Macau", "p": 649335, "c": "Asia", "co": "Macao"}, {"n": "Palermo", "p": 648260, "c": "Europe", "co": "Italy"}, {"n": "Izhevsk", "p": 648213, "c": "Europe", "co": "Russia"}, {"n": "Colombo", "p": 648034, "c": "Asia", "co": "Sri Lanka"}, {"n": "Maturín", "p": 647459, "c": "South America", "co": "Venezuela"}, {"n": "Amravati", "p": 647057, "c": "Asia", "co": "India"}, {"n": "Detroit", "p": 645705, "c": "North America", "co": "United States"}, {"n": "Osogbo", "p": 645000, "c": "Africa", "co": "Nigeria"}, {"n": "Honchō", "p": 644668, "c": "Asia", "co": "Japan"}, {"n": "Taguig", "p": 644473, "c": "Asia", "co": "Philippines"}, {"n": "Bikaner", "p": 644406, "c": "Asia", "co": "India"}, {"n": "Jaboatão dos Guararapes", "p": 644037, "c": "South America", "co": "Brazil"}, {"n": "Las Vegas", "p": 641903, "c": "North America", "co": "United States"}, {"n": "New South Memphis", "p": 641608, "c": "North America", "co": "United States"}, {"n": "Hwaseong-si", "p": 640890, "c": "Asia", "co": "South Korea"}, {"n": "Gold Coast", "p": 640778, "c": "Oceania", "co": "Australia"}, {"n": "Kotli", "p": 640000, "c": "Asia", "co": "Pakistan"}, {"n": "Jeonju", "p": 638019, "c": "Asia", "co": "South Korea"}, {"n": "Al Aḩmadī", "p": 637411, "c": "Asia", "co": "Kuwait"}, {"n": "Cuenca", "p": 636996, "c": "South America", "co": "Ecuador"}, {"n": "Chisinau", "p": 635994, "c": "Europe", "co": "Moldova"}, {"n": "Likasi", "p": 635768, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Hebi", "p": 634721, "c": "Asia", "co": "China"}, {"n": "Tshikapa", "p": 634529, "c": "Africa", "co": "Democratic Republic of the Congo"}, {"n": "Kochi", "p": 633553, "c": "Asia", "co": "India"}, {"n": "Memphis", "p": 633104, "c": "North America", "co": "United States"}, {"n": "Jingmen", "p": 632954, "c": "Asia", "co": "China"}, {"n": "Barnaul", "p": 632372, "c": "Europe", "co": "Russia"}, {"n": "Dandong", "p": 631973, "c": "Asia", "co": "China"}, {"n": "Stuttgart", "p": 630305, "c": "Europe", "co": "Germany"}, {"n": "Cancún", "p": 628306, "c": "North America", "co": "Mexico"}, {"n": "Bhilai", "p": 627734, "c": "Asia", "co": "India"}, {"n": "Ndola", "p": 627503, "c": "Africa", "co": "Zambia"}, {"n": "Contagem", "p": 627123, "c": "South America", "co": "Brazil"}, {"n": "Ulyanovsk", "p": 626540, "c": "Europe", "co": "Russia"}, {"n": "Djibouti", "p": 626512, "c": "Africa", "co": "Djibouti"}, {"n": "Glasgow", "p": 626410, "c": "Europe", "co": "United Kingdom"}, {"n": "Panshan", "p": 625040, "c": "Asia", "co": "China"}, {"n": "Louisville", "p": 624444, "c": "North America", "co": "United States"}, {"n": "Irkutsk", "p": 623869, "c": "Europe", "co": "Russia"}, {"n": "Ansan-si", "p": 623256, "c": "Asia", "co": "South Korea"}, {"n": "Al Mansurah", "p": 621953, "c": "Africa", "co": "Egypt"}, {"n": "Kermanshah", "p": 621100, "c": "Asia", "co": "Iran"}, {"n": "Düsseldorf", "p": 620523, "c": "Europe", "co": "Germany"}, {"n": "Coyoacán", "p": 620416, "c": "North America", "co": "Mexico"}, {"n": "Feira de Santana", "p": 619609, "c": "South America", "co": "Brazil"}, {"n": "Jiaozhou", "p": 619266, "c": "Asia", "co": "China"}, {"n": "Suizhou", "p": 618582, "c": "Asia", "co": "China"}, {"n": "Villa Nueva", "p": 618397, "c": "North America", "co": "Guatemala"}, {"n": "Khabarovsk", "p": 618150, "c": "Europe", "co": "Russia"}, {"n": "Cuiabá", "p": 618124, "c": "South America", "co": "Brazil"}, {"n": "Arusha", "p": 617631, "c": "Africa", "co": "Tanzania"}, {"n": "Pasig City", "p": 617301, "c": "Asia", "co": "Philippines"}, {"n": "Chizhou", "p": 615274, "c": "Asia", "co": "China"}, {"n": "Santa María Chimalhuacán", "p": 612383, "c": "North America", "co": "Mexico"}, {"n": "Ya'an", "p": 612056, "c": "Asia", "co": "China"}, {"n": "Cuttack", "p": 610189, "c": "Asia", "co": "India"}, {"n": "Borivli", "p": 609617, "c": "Asia", "co": "India"}, {"n": "Yaroslavl", "p": 608722, "c": "Europe", "co": "Russia"}, {"n": "Göteborg", "p": 608462, "c": "Europe", "co": "Sweden"}, {"n": "Kawaguchi", "p": 607373, "c": "Asia", "co": "Japan"}, {"n": "Bukit Rahman Putra", "p": 607000, "c": "Asia", "co": "Malaysia"}, {"n": "Jambi City", "p": 606200, "c": "Asia", "co": "Indonesia"}, {"n": "Ha'il", "p": 605930, "c": "Asia", "co": "Saudi Arabia"}, {"n": "Bhavnagar", "p": 605882, "c": "Asia", "co": "India"}, {"n": "Benoni", "p": 605344, "c": "Africa", "co": "South Africa"}, {"n": "Vladivostok", "p": 604901, "c": "Europe", "co": "Russia"}, {"n": "Jinzhou", "p": 604269, "c": "Asia", "co": "China"}, {"n": "Tuxtla", "p": 604147, "c": "North America", "co": "Mexico"}, {"n": "Kryvyy Rih", "p": 603904, "c": "Europe", "co": "Ukraine"}, {"n": "Sanming", "p": 602166, "c": "Asia", "co": "China"}, {"n": "Islamabad", "p": 601600, "c": "Asia", "co": "Pakistan"}, {"n": "Sāngli", "p": 601214, "c": "Asia", "co": "India"}, {"n": "Jamnagar", "p": 600943, "c": "Asia", "co": "India"}, {"n": "Lubango", "p": 600751, "c": "Africa", "co": "Angola"}, {"n": "Shuangyashan", "p": 600000, "c": "Asia", "co": "China"}, {"n": "Pokhara", "p": 599504, "c": "Asia", "co": "Nepal"}, {"n": "Rotterdam", "p": 598199, "c": "Europe", "co": "The Netherlands"}, {"n": "Borama", "p": 597842, "c": "Africa", "co": "Somalia"}, {"n": "Pallabi", "p": 597574, "c": "Asia", "co": "Bangladesh"}, {"n": "Luancheng", "p": 597130, "c": "Asia", "co": "China"}, {"n": "Makhachkala", "p": 596356, "c": "Europe", "co": "Russia"}, {"n": "Anyang-si", "p": 595644, "c": "Asia", "co": "South Korea"}, {"n": "Huambo", "p": 595304, "c": "Africa", "co": "Angola"}, {"n": "Samarkand", "p": 595200, "c": "Asia", "co": "Uzbekistan"}, {"n": "Mengzi", "p": 595100, "c": "Asia", "co": "China"}, {"n": "Kagoshima", "p": 595049, "c": "Asia", "co": "Japan"}, {"n": "Mukalla", "p": 594951, "c": "Asia", "co": "Yemen"}, {"n": "Rasht", "p": 594590, "c": "Asia", "co": "Iran"}, {"n": "Mar del Plata", "p": 593337, "c": "South America", "co": "Argentina"}, {"n": "Essen", "p": 593085, "c": "Europe", "co": "Germany"}, {"n": "Al Maḩallah al Kubrá", "p": 592573, "c": "Africa", "co": "Egypt"}, {"n": "Málaga", "p": 591637, "c": "Europe", "co": "Spain"}, {"n": "Shekhupura", "p": 591424, "c": "Asia", "co": "Pakistan"}, {"n": "Yingkou", "p": 591159, "c": "Asia", "co": "China"}, {"n": "Cimahi", "p": 590782, "c": "Asia", "co": "Indonesia"}, {"n": "Las Piñas", "p": 590000, "c": "Asia", "co": "Philippines"}, {"n": "Zhangzhou", "p": 589831, "c": "Asia", "co": "China"}, {"n": "Reynosa", "p": 589466, "c": "North America", "co": "Mexico"}, {"n": "Thuận An", "p": 588616, "c": "Asia", "co": "Vietnam"}, {"n": "Dortmund", "p": 588462, "c": "Europe", "co": "Germany"}, {"n": "Suginami", "p": 588354, "c": "Asia", "co": "Japan"}, {"n": "Londrina", "p": 588125, "c": "South America", "co": "Brazil"}, {"n": "Baltimore", "p": 585708, "c": "North America", "co": "United States"}, {"n": "Itabashi", "p": 584483, "c": "Asia", "co": "Japan"}, {"n": "New Kingston", "p": 583958, "c": "North America", "co": "Jamaica"}, {"n": "Pelentong", "p": 583640, "c": "Asia", "co": "Malaysia"}, {"n": "Bucaramanga", "p": 581130, "c": "South America", "co": "Colombia"}, {"n": "Genoa", "p": 580097, "c": "Europe", "co": "Italy"}, {"n": "Hachiōji", "p": 579355, "c": "Asia", "co": "Japan"}, {"n": "Malacca", "p": 579000, "c": "Asia", "co": "Malaysia"}, {"n": "Nha Trang", "p": 579000, "c": "Asia", "co": "Vietnam"}, {"n": "Khabarovsk Vtoroy", "p": 578303, "c": "Europe", "co": "Russia"}, {"n": "Kerman", "p": 577514, "c": "Asia", "co": "Iran"}, {"n": "Orūmīyeh", "p": 577307, "c": "Asia", "co": "Iran"}, {"n": "Bahçelievler", "p": 576799, "c": "Asia", "co": "Turkey"}, {"n": "Tanta", "p": 576648, "c": "Africa", "co": "Egypt"}, {"n": "Jammu", "p": 576198, "c": "Asia", "co": "India"}, {"n": "Iskandar Puteri", "p": 575977, "c": "Asia", "co": "Malaysia"}, {"n": "Tlalpan", "p": 574577, "c": "North America", "co": "Mexico"}, {"n": "Herāt", "p": 574300, "c": "Asia", "co": "Afghanistan"}, {"n": "Gujrat", "p": 574240, "c": "Asia", "co": "Pakistan"}, {"n": "Tomsk", "p": 574002, "c": "Europe", "co": "Russia"}, {"n": "Juiz de Fora", "p": 573285, "c": "South America", "co": "Brazil"}, {"n": "Umraniye", "p": 573265, "c": "Asia", "co": "Turkey"}, {"n": "Shihezi", "p": 572772, "c": "Asia", "co": "China"}, {"n": "South Boston", "p": 571281, "c": "North America", "co": "United States"}, {"n": "Nakuru", "p": 570674, "c": "Africa", "co": "Kenya"}, {"n": "Poznań", "p": 570352, "c": "Europe", "co": "Poland"}, {"n": "Hamilton", "p": 569353, "c": "North America", "co": "Canada"}, {"n": "Irbid", "p": 569068, "c": "Asia", "co": "Jordan"}, {"n": "Manchester", "p": 568996, "c": "Europe", "co": "United Kingdom"}, {"n": "Kota Bharu", "p": 568900, "c": "Asia", "co": "Malaysia"}, {"n": "Surrey", "p": 568322, "c": "North America", "co": "Canada"}, {"n": "Meknes", "p": 568295, "c": "Africa", "co": "Morocco"}, {"n": "Puente Alto", "p": 568106, "c": "South America", "co": "Chile"}, {"n": "Nyala", "p": 565734, "c": "Africa", "co": "Sudan"}, {"n": "Orenburg", "p": 564773, "c": "Europe", "co": "Russia"}, {"n": "Albuquerque", "p": 564559, "c": "North America", "co": "United States"}, {"n": "Bokāro", "p": 564319, "c": "Asia", "co": "India"}, {"n": "Asmara", "p": 563930, "c": "Africa", "co": "Eritrea"}, {"n": "Sukkur", "p": 563851, "c": "Asia", "co": "Pakistan"}, {"n": "Uberlândia", "p": 563536, "c": "South America", "co": "Brazil"}, {"n": "Milwaukee", "p": 563531, "c": "North America", "co": "United States"}, {"n": "Chợ Lớn", "p": 561000, "c": "Asia", "co": "Vietnam"}, {"n": "Wenchang", "p": 560894, "c": "Asia", "co": "China"}, {"n": "Ile-Ife", "p": 560000, "c": "Africa", "co": "Nigeria"}, {"n": "Gombe", "p": 560000, "c": "Africa", "co": "Nigeria"}, {"n": "Hamhŭng", "p": 559056, "c": "Asia", "co": "North Korea"}, {"n": "Kemerovo", "p": 558973, "c": "Europe", "co": "Russia"}, {"n": "Nasiriyah", "p": 558400, "c": "Asia", "co": "Iraq"}, {"n": "Bloemfontein", "p": 556637, "c": "Africa", "co": "South Africa"}, {"n": "Sheffield", "p": 556500, "c": "Europe", "co": "United Kingdom"}, {"n": "Dresden", "p": 556227, "c": "Europe", "co": "Germany"}, {"n": "Santiago de Cuba", "p": 555865, "c": "North America", "co": "Cuba"}, {"n": "Siping", "p": 555609, "c": "Asia", "co": "China"}, {"n": "Benguela", "p": 555124, "c": "Africa", "co": "Angola"}, {"n": "Chuxiong", "p": 555081, "c": "Asia", "co": "China"}, {"n": "Huaihua", "p": 552622, "c": "Asia", "co": "China"}, {"n": "Chiclayo", "p": 552508, "c": "South America", "co": "Peru"}, {"n": "Zahedan", "p": 551980, "c": "Asia", "co": "Iran"}, {"n": "Banqiao", "p": 551221, "c": "Asia", "co": "Taiwan"}, {"n": "Nanded", "p": 550564, "c": "Asia", "co": "India"}, {"n": "Kozhikode", "p": 550440, "c": "Asia", "co": "India"}, {"n": "Ulanqab", "p": 550231, "c": "Asia", "co": "China"}, {"n": "Cabinda", "p": 550000, "c": "Africa", "co": "Angola"}, {"n": "Ajegunle", "p": 550000, "c": "Africa", "co": "Nigeria"}, {"n": "Pristina", "p": 550000, "c": "Europe", "co": "Kosovo"}, {"n": "Jiamusi", "p": 549549, "c": "Asia", "co": "China"}, {"n": "Korla", "p": 549324, "c": "Asia", "co": "China"}, {"n": "Kolhāpur", "p": 549236, "c": "Asia", "co": "India"}, {"n": "Porto Velho", "p": 548952, "c": "South America", "co": "Brazil"}, {"n": "San Miguel de Tucumán", "p": 548866, "c": "South America", "co": "Argentina"}, {"n": "Kuantan", "p": 548014, "c": "Asia", "co": "Malaysia"}, {"n": "Sevastopol", "p": 547820, "c": "Europe", "co": "Ukraine"}, {"n": "Nellore", "p": 547621, "c": "Asia", "co": "India"}, {"n": "Mirpur Model Thana", "p": 546503, "c": "Asia", "co": "Bangladesh"}, {"n": "Bremen", "p": 546501, "c": "Europe", "co": "Germany"}, {"n": "Wanning", "p": 545992, "c": "Asia", "co": "China"}, {"n": "Owerri", "p": 545000, "c": "Africa", "co": "Nigeria"}, {"n": "Kota Kuala Muda", "p": 544984, "c": "Asia", "co": "Malaysia"}, {"n": "Xinzhou", "p": 544683, "c": "Asia", "co": "China"}];
+
+/* ----------------- config ----------------- */
+const MAX_GUESSES = 6;
+const POP_BUCKET = 1_000_000;        // 1M buckets
+const EPOCH = Date.UTC(2025,0,1);    // puzzle #1 reference date
+
+/* ----------------- daily city ----------------- */
+function fnv1a(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
+function stripAccents(s){return s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'');}
+function pad2(n){return String(n).padStart(2,'0');}
+function localDateStr(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
+
+const today = new Date();
+const dateStr = localDateStr(today);
+const dailyIndex = fnv1a(dateStr) % CITIES.length;
+const puzzleNo = Math.floor((Date.UTC(today.getFullYear(),today.getMonth(),today.getDate()) - EPOCH)/86400000) + 1;
+
+const answer = CITIES[dailyIndex];
+const display = answer.n;                              // e.g. "São Paulo"
+const solution = stripAccents(answer.n).toUpperCase(); // e.g. "SAO PAULO"
+const isLetter = ch => ch >= 'A' && ch <= 'Z';
+const letterSlots = [];                                // indices in solution that are guessable letters
+for(let i=0;i<solution.length;i++) if(isLetter(solution[i])) letterSlots.push(i);
+const N = letterSlots.length;
+
+/* ----------------- state ----------------- */
+let current = [];        // typed letters for current row (aligned to letterSlots)
+let guesses = [];        // [{letters:[...], status:[...]}]
+let finished = false;
+let won = false;
+let hintsUsed = 0;       // 0,1,2
+const keyState = {};     // letter -> best status
+
+/* ----------------- helpers ----------------- */
+function popHint(p){
+  if(p < POP_BUCKET) return 'Under 1 million';
+  const lo = Math.floor(p / POP_BUCKET);
+  return `${lo}–${lo+1} million`;
+}
+function evaluate(guessLetters){
+  const sol = letterSlots.map(i => solution[i]);
+  const status = new Array(N).fill('absent');
+  const counts = {};
+  for(const ch of sol) counts[ch] = (counts[ch]||0)+1;
+  for(let i=0;i<N;i++){ if(guessLetters[i]===sol[i]){ status[i]='correct'; counts[sol[i]]--; } }
+  for(let i=0;i<N;i++){
+    if(status[i]==='correct') continue;
+    const ch = guessLetters[i];
+    if(counts[ch] > 0){ status[i]='present'; counts[ch]--; }
+  }
+  return status;
+}
+const rank = {absent:1, present:2, correct:3};
+function bumpKey(ch, s){
+  if(!keyState[ch] || rank[s] > rank[keyState[ch]]) keyState[ch] = s;
+}
+
+/* ----------------- rendering ----------------- */
+const board = document.getElementById('board');
+function tileClassForFixed(ch){ return ch === ' ' ? 'tile fixed space' : 'tile fixed'; }
+
+function render(){
+  board.innerHTML='';
+  for(let r=0;r<MAX_GUESSES;r++){
+    const row = document.createElement('div');
+    row.className='row';
+    const done = guesses[r];
+    let lp = 0; // pointer into letterSlots for this row
+    for(let i=0;i<solution.length;i++){
+      const ch = solution[i];
+      const t = document.createElement('div');
+      if(isLetter(ch)){
+        const slot = lp++;
+        if(done){
+          t.className = 'tile ' + done.status[slot];
+          t.textContent = done.letters[slot];
+        } else if(r === guesses.length && !finished){
+          const typed = current[slot];
+          t.className = 'tile' + (typed ? ' filled' : '');
+          if(slot === current.length) t.className += ' cursor';
+          t.textContent = typed || '';
+        } else {
+          t.className = 'tile';
+        }
+      } else {
+        t.className = tileClassForFixed(ch);
+        t.textContent = ch === ' ' ? '' : ch;
+      }
+      row.appendChild(t);
+    }
+    if(done && done.justRevealed){ row.classList.add('reveal'); done.justRevealed=false; }
+    board.appendChild(row);
+  }
+  renderKeyboard();
+}
+
+/* ----------------- keyboard ----------------- */
+const KB_ROWS = ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
+const keyboard = document.getElementById('keyboard');
+function renderKeyboard(){
+  keyboard.innerHTML='';
+  KB_ROWS.forEach((rowStr, idx)=>{
+    const row = document.createElement('div');
+    row.className='kb-row';
+    if(idx===2){
+      row.appendChild(makeKey('ENTER','enter',true));
+    }
+    for(const ch of rowStr){
+      const k = makeKey(ch, 'char');
+      if(keyState[ch]) k.classList.add(keyState[ch]);
+      row.appendChild(k);
+    }
+    if(idx===2){
+      row.appendChild(makeKey('⌫','back',true));
+    }
+    keyboard.appendChild(row);
+  });
+}
+function makeKey(label, kind, wide){
+  const k = document.createElement('button');
+  k.className = 'key' + (wide ? ' wide':'');
+  k.textContent = label;
+  k.type='button';
+  k.addEventListener('click', ()=>{
+    if(kind==='enter') submit();
+    else if(kind==='back') backspace();
+    else type(label);
+  });
+  return k;
+}
+
+/* ----------------- input ----------------- */
+function type(ch){
+  if(finished) return;
+  if(current.length >= N) return;
+  current.push(ch);
+  render();
+}
+function backspace(){
+  if(finished) return;
+  current.pop();
+  render();
+}
+function submit(){
+  if(finished) return;
+  if(current.length < N){ toast('Not enough letters'); shakeCurrent(); return; }
+  const letters = current.slice();
+  const status = evaluate(letters);
+  letters.forEach((ch,i)=>bumpKey(ch, status[i]));
+  guesses.push({letters, status, justRevealed:true});
+  current = [];
+  won = status.every(s => s === 'correct');
+  if(won){ finished = true; saveState(); render(); setTimeout(()=>endGame(true), 700); return; }
+  if(guesses.length >= MAX_GUESSES){ finished = true; saveState(); render(); setTimeout(()=>endGame(false), 700); return; }
+  saveState();
+  render();
+}
+function shakeCurrent(){
+  const rows = board.querySelectorAll('.row');
+  const r = rows[guesses.length];
+  if(r){ r.classList.add('bad'); setTimeout(()=>r.classList.remove('bad'),500); }
+}
+
+document.addEventListener('keydown', e=>{
+  if(document.getElementById('overlay').classList.contains('show')) return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if(e.key==='Enter'){ submit(); }
+  else if(e.key==='Backspace'){ backspace(); }
+  else {
+    const ch = e.key.toUpperCase();
+    if(ch.length===1 && ch>='A' && ch<='Z') type(ch);
+  }
+});
+
+/* ----------------- hints ----------------- */
+const hintRow1 = document.getElementById('hintRow1');
+const hintRow2 = document.getElementById('hintRow2');
+const hintRow3 = document.getElementById('hintRow3');
+function renderHints(){
+  hintRow1.innerHTML=''; hintRow2.innerHTML=''; hintRow3.innerHTML='';
+  // Hint 1: population
+  if(hintsUsed >= 1){
+    hintRow1.appendChild(chip('Population', popHint(answer.p)));
+  } else {
+    hintRow1.appendChild(hintButton('Reveal population range', ()=>{ hintsUsed=1; saveState(); renderHints(); }));
+  }
+  // Hint 2: continent (locked until hint 1 used)
+  if(hintsUsed >= 2){
+    hintRow2.appendChild(chip('Continent', answer.c));
+  } else if(hintsUsed >= 1){
+    hintRow2.appendChild(hintButton('Reveal continent', ()=>{ hintsUsed=2; saveState(); renderHints(); }));
+  } else {
+    hintRow2.appendChild(hintButton('Continent', null, 'Use hint 1 first'));
+  }
+  // Hint 3: country (locked until hint 2 used)
+  if(hintsUsed >= 3){
+    hintRow3.appendChild(chip('Country', answer.co));
+  } else if(hintsUsed >= 2){
+    hintRow3.appendChild(hintButton('Reveal country', ()=>{ hintsUsed=3; saveState(); renderHints(); }));
+  } else {
+    hintRow3.appendChild(hintButton('Country', null, 'Use hint 2 first'));
+  }
+}
+function hintButton(label, onClick, lockText){
+  const b = document.createElement('button');
+  b.className='hint-btn'; b.type='button';
+  b.innerHTML = label + (lockText ? ` <span class="lock">🔒 ${lockText}</span>` : '');
+  if(onClick) b.addEventListener('click', onClick); else b.disabled = true;
+  return b;
+}
+function chip(k,v){
+  const d = document.createElement('div'); d.className='hint-chip';
+  d.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`;
+  return d;
+}
+
+/* ----------------- end game ----------------- */
+function endGame(didWin){
+  const overlay = document.getElementById('overlay');
+  document.getElementById('modalTitle').textContent = didWin ? winTitle(guesses.length) : 'So close!';
+  document.getElementById('modalAnswer').textContent = display;
+  document.getElementById('modalSub').textContent = `${answer.co} · ${answer.c} · ${answer.p.toLocaleString()} people`;
+  const stats = document.getElementById('modalStats');
+  stats.innerHTML='';
+  stats.appendChild(stat(didWin ? guesses.length : 'X', 'Guesses'));
+  stats.appendChild(stat(hintsUsed, 'Hints used'));
+  overlay.classList.add('show');
+  startCountdown();
+}
+function winTitle(n){
+  return ['Incredible!','Magnificent!','Impressive!','Nicely done!','Solid.','Phew!'][Math.min(n-1,5)];
+}
+function stat(v,l){
+  const d=document.createElement('div'); d.className='stat';
+  d.innerHTML=`<b>${v}</b><span>${l}</span>`; return d;
+}
+
+/* ----------------- share ----------------- */
+function buildShare(){
+  const emoji = {correct:'🟩',present:'🟨',absent:'⬜'};
+  const lines = guesses.map(g=>{
+    let out=''; let lp=0;
+    for(let i=0;i<solution.length;i++){
+      if(isLetter(solution[i])) out += emoji[g.status[lp++]];
+      else if(solution[i]===' ') out += ' ';
+    }
+    return out;
+  });
+  const score = won ? guesses.length : 'X';
+  const hintMark = hintsUsed ? ` (${hintsUsed}💡)` : '';
+  return `Wordopolis #${puzzleNo}  ${score}/${MAX_GUESSES}${hintMark}\n` + lines.join('\n');
+}
+document.getElementById('shareBtn').addEventListener('click', async ()=>{
+  const text = buildShare();
+  try{
+    if(navigator.share && /Mobi|Android|iPhone/i.test(navigator.userAgent)){
+      await navigator.share({text});
+    } else {
+      await navigator.clipboard.writeText(text);
+      toast('Copied to clipboard');
+    }
+  }catch(e){
+    try{ await navigator.clipboard.writeText(text); toast('Copied to clipboard'); }
+    catch(_){ toast('Could not copy'); }
+  }
+});
+
+/* ----------------- countdown ----------------- */
+let cdTimer=null;
+function startCountdown(){
+  const cd = document.getElementById('cd');
+  function tick(){
+    const now = new Date();
+    const mid = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0);
+    let s = Math.max(0, Math.floor((mid-now)/1000));
+    const h=pad2(Math.floor(s/3600)); s%=3600;
+    const m=pad2(Math.floor(s/60)); const ss=pad2(s%60);
+    cd.textContent = `${h}:${m}:${ss}`;
+  }
+  tick(); if(cdTimer) clearInterval(cdTimer); cdTimer=setInterval(tick,1000);
+}
+
+/* ----------------- toast ----------------- */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1400);
+}
+
+/* ----------------- help ----------------- */
+document.getElementById('helpBtn').addEventListener('click', ()=>{
+  toast('Green = right spot · Yellow = wrong spot');
+});
+
+/* ----------------- skyline signature ----------------- */
+(function drawSkyline(){
+  const svg=document.querySelector('.skyline');
+  let x=0; const W=420,H=34; const rects=[];
+  let seed=99;
+  const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  while(x<W){
+    const w=8+Math.floor(rnd()*22);
+    const h=8+Math.floor(rnd()*24);
+    rects.push(`<rect x="${x}" y="${H-h}" width="${w-2}" height="${h}" rx="1" fill="#262d39"/>`);
+    // a few lit windows
+    if(rnd()>.55){
+      const wy=H-h+3+Math.floor(rnd()*4);
+      rects.push(`<rect x="${x+2}" y="${wy}" width="2" height="2" fill="#f4b740" opacity="${.4+rnd()*.5}"/>`);
+    }
+    x+=w;
+  }
+  svg.innerHTML=rects.join('');
+})();
+
+/* ----------------- persistence ----------------- */
+function saveState(){
+  try {
+    localStorage.setItem('wordopolis:'+dateStr, JSON.stringify({guesses, hintsUsed, finished, won}));
+  } catch(e) {}
+}
+function loadState(){
+  try {
+    const raw = localStorage.getItem('wordopolis:'+dateStr);
+    if(!raw) return;
+    const s = JSON.parse(raw);
+    guesses = s.guesses; hintsUsed = s.hintsUsed; finished = s.finished; won = s.won;
+    guesses.forEach(g => g.letters.forEach((ch, i) => bumpKey(ch, g.status[i])));
+  } catch(e) {}
+}
+
+/* ----------------- init ----------------- */
+document.getElementById('meta').textContent = `Puzzle #${puzzleNo} · ${today.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`;
+document.getElementById('footnote').textContent = `${CITIES.length} cities · population data via GeoNames`;
+loadState();
+renderHints();
+render();
+if(finished) setTimeout(()=>endGame(won), 300);
+</script>
+</body>
+</html>
