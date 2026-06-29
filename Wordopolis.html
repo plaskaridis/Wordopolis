@@ -169,8 +169,8 @@
     min-height:44px;
   }
   .btn-secondary{
-    background:transparent;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px
+    background:linear-gradient(180deg,var(--accent),var(--accent-dim));color:#1a1500;border:none;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;box-shadow:0 6px 18px rgba(0,0,0,.28)
   }
   .btn-primary:active{transform:translateY(1px)}
   .countdown{margin-top:12px;color:var(--muted);font-size:12px}
@@ -568,6 +568,7 @@ if(practicePlayBtn){
   practicePlayBtn.addEventListener('click', ()=>{
     document.getElementById('overlay').classList.remove('show');
     hydrateGame('practice');
+    toast('Starting practice round');
   });
 }
 
