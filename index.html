@@ -355,6 +355,26 @@ function setupPuzzle(mode = currentMode){
 const isLetter = ch => ch >= 'A' && ch <= 'Z';
 setupPuzzle('daily');
 
+/* ----------------- city validation ----------------- */
+function levenshtein(a, b){
+  const m=a.length, n=b.length;
+  const dp=[];
+  for(let i=0;i<=m;i++){ dp[i]=[i]; for(let j=1;j<=n;j++) dp[i][j]=i===0?j:0; }
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+function checkCityGuess(letters){
+  const guess=letters.join('');
+  let minDist=Infinity;
+  for(const city of CITIES){
+    const norm=stripAccents(city.n).toUpperCase().replace(/[^A-Z]/g,'');
+    if(norm===guess) return 'match';
+    if(norm.length===guess.length){ const d=levenshtein(guess,norm); if(d<minDist) minDist=d; }
+  }
+  return minDist<=2?'close':'none';
+}
+
 /* ----------------- helpers ----------------- */
 function popHint(p){
   if(p < POP_BUCKET) return 'Under 1 million';
@@ -469,6 +489,9 @@ function submit(){
   if(finished) return;
   if(current.length < N){ toast('Not enough letters'); shakeCurrent(); return; }
   const letters = current.slice();
+  const cityCheck = checkCityGuess(letters);
+  if(cityCheck==='close'){ toast('Try a different spelling'); shakeCurrent(); return; }
+  if(cityCheck==='none'){ toast('City not found'); shakeCurrent(); return; }
   const status = evaluate(letters);
   letters.forEach((ch,i)=>bumpKey(ch, status[i]));
   guesses.push({letters, status, justRevealed:true});
