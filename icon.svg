@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Wordopolis icon</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b2330"/>
+      <stop offset="55%" stop-color="#13151a"/>
+      <stop offset="100%" stop-color="#0e1014"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="392" cy="120" r="90" fill="#f4b740" opacity="0.18"/>
+  <g fill="#262c37">
+    <rect x="0" y="332" width="48" height="180"/>
+    <rect x="48" y="282" width="42" height="230"/>
+    <rect x="90" y="352" width="50" height="160"/>
+    <rect x="140" y="232" width="46" height="280"/>
+    <rect x="186" y="362" width="40" height="150"/>
+    <polygon points="226,512 226,260 236,260 253,170 270,260 280,260 280,512"/>
+    <rect x="280" y="322" width="44" height="190"/>
+    <rect x="324" y="262" width="50" height="250"/>
+    <rect x="374" y="342" width="42" height="170"/>
+    <rect x="416" y="292" width="48" height="220"/>
+    <rect x="464" y="372" width="48" height="140"/>
+  </g>
+  <text x="256" y="495" text-anchor="middle" fill="#f4b740" font-family="Arial, Helvetica, sans-serif" font-weight="800"><tspan font-size="110">W</tspan><tspan font-size="65">ordo</tspan><tspan font-size="110">P</tspan><tspan font-size="65">olis</tspan></text>
+</svg>
