@@ -7,13 +7,32 @@
       <stop offset="55%" stop-color="#13151a"/>
       <stop offset="100%" stop-color="#0e1014"/>
     </linearGradient>
+    <clipPath id="cardClip">
+      <rect width="1200" height="630" rx="36"/>
+    </clipPath>
   </defs>
   <rect width="1200" height="630" rx="36" fill="url(#bg)"/>
   <circle cx="980" cy="150" r="160" fill="#f4b740" opacity="0.18"/>
+  <g clip-path="url(#cardClip)" fill="#262c37">
+    <rect x="0" y="560" width="90" height="70"/>
+    <rect x="90" y="535" width="85" height="95"/>
+    <rect x="175" y="570" width="95" height="60"/>
+    <rect x="270" y="510" width="80" height="120"/>
+    <rect x="350" y="575" width="90" height="55"/>
+    <polygon points="440,630 440,520 460,520 490,480 520,520 540,520 540,630"/>
+    <rect x="540" y="565" width="85" height="65"/>
+    <rect x="625" y="520" width="95" height="110"/>
+    <rect x="720" y="580" width="80" height="50"/>
+    <rect x="800" y="530" width="90" height="100"/>
+    <rect x="890" y="560" width="85" height="70"/>
+    <rect x="975" y="500" width="95" height="130"/>
+    <rect x="1070" y="570" width="80" height="60"/>
+    <rect x="1150" y="540" width="50" height="90"/>
+  </g>
   <rect x="120" y="150" width="960" height="330" rx="28" fill="#1d212a" stroke="#2c323d" stroke-width="3"/>
   <text x="180" y="248" fill="#f4b740" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" letter-spacing="6">WORDOPOLIS</text>
   <text x="180" y="322" fill="#e9ebef" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">Guess today’s city</text>
   <text x="180" y="384" fill="#9aa1ad" font-family="Arial, Helvetica, sans-serif" font-size="30">Share your result in one tap • Mobile-friendly</text>
   <rect x="180" y="430" width="200" height="54" rx="12" fill="#f4b740"/>
-  <text x="240" y="466" text-anchor="middle" fill="#1a1500" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Play now</text>
+  <text x="280" y="466" text-anchor="middle" fill="#1a1500" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Play now</text>
 </svg>

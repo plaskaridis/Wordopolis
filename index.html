@@ -619,8 +619,7 @@ function buildShare(){
   const score = won ? guesses.length : 'X';
   const hintMark = hintsUsed ? ` (${hintsUsed}💡)` : '';
   const modeLabel = currentMode === 'practice' ? 'Practice' : 'Daily';
-  const shareUrl = window.location.href;
-  return `Wordopolis ${modeLabel} #${currentPuzzleLabel}  ${score}/${MAX_GUESSES}${hintMark}  ${computeScore()}pts\n` + lines.join('\n') + `\n\nPlay: ${shareUrl}`;
+  return `Wordopolis ${modeLabel} #${currentPuzzleLabel}  ${score}/${MAX_GUESSES}${hintMark}  Score: ${computeScore()}pts\n` + lines.join('\n');
 }
 document.getElementById('shareBtn').addEventListener('click', async ()=>{
   const text = buildShare();
