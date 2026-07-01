@@ -381,6 +381,13 @@ function popHint(p){
   const lo = Math.floor(p / POP_BUCKET);
   return `${lo}–${lo+1} million`;
 }
+const GUESS_SCORES = [100, 95, 80, 60, 40, 20];
+const HINT_PENALTY = [0, 10, 15, 20];
+function computeScore(){
+  if(!won) return 0;
+  const base = GUESS_SCORES[guesses.length - 1] ?? 0;
+  return Math.max(0, base - HINT_PENALTY[hintsUsed]);
+}
 function evaluate(guessLetters){
   const sol = letterSlots.map(i => solution[i]);
   const status = new Array(N).fill('absent');
@@ -570,6 +577,7 @@ function endGame(didWin, gaveUp){
   document.getElementById('modalSub').textContent = `${answer.co} · ${answer.c} · ${answer.p.toLocaleString()} people`;
   const stats = document.getElementById('modalStats');
   stats.innerHTML='';
+  stats.appendChild(stat(computeScore(), 'Score'));
   stats.appendChild(stat(didWin ? guesses.length : 'X', 'Guesses'));
   stats.appendChild(stat(hintsUsed, 'Hints used'));
   // Show overlay and reveal practice-play option for finished games
@@ -607,7 +615,7 @@ function buildShare(){
   const hintMark = hintsUsed ? ` (${hintsUsed}💡)` : '';
   const modeLabel = currentMode === 'practice' ? 'Practice' : 'Daily';
   const shareUrl = window.location.href;
-  return `Wordopolis ${modeLabel} #${currentPuzzleLabel}  ${score}/${MAX_GUESSES}${hintMark}\n` + lines.join('\n') + `\n\nPlay: ${shareUrl}`;
+  return `Wordopolis ${modeLabel} #${currentPuzzleLabel}  ${score}/${MAX_GUESSES}${hintMark}  ${computeScore()}pts\n` + lines.join('\n') + `\n\nPlay: ${shareUrl}`;
 }
 document.getElementById('shareBtn').addEventListener('click', async ()=>{
   const text = buildShare();
