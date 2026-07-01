@@ -300,12 +300,24 @@ function getESTDateStr(date = new Date()){
   const {year, month, day} = getESTDateParts(date);
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
+const CITIES_BY_CONTINENT = {};
+for(const city of CITIES){
+  (CITIES_BY_CONTINENT[city.c] || (CITIES_BY_CONTINENT[city.c] = [])).push(city);
+}
+const CONTINENTS = Object.keys(CITIES_BY_CONTINENT);
+// Stratified by continent so a handful of city-dense countries (e.g. China)
+// don't dominate the pick just because they have more entries.
+function pickStratifiedCity(rng){
+  const continent = CONTINENTS[Math.floor(rng()*CONTINENTS.length)];
+  const pool = CITIES_BY_CONTINENT[continent];
+  return pool[Math.floor(rng()*pool.length)];
+}
 function getDailyPuzzleFromDate(dateKey){
-  const rng = createSeededRng(hashString(dateKey));
-  return CITIES[Math.floor(rng()*CITIES.length)];
+  return pickStratifiedCity(createSeededRng(hashString(dateKey)));
 }
 function getPracticePuzzle(){
-  return getDailyPuzzleFromDate(`practice-${Date.now()}-${Math.floor(Math.random()*1e9)}`);
+  const rng = createSeededRng(hashString(`practice-${Date.now()}-${Math.floor(Math.random()*1e9)}`));
+  return pickStratifiedCity(rng);
 }
 function buildPuzzle(mode){
   if(mode === 'practice'){
