@@ -48,6 +48,15 @@
     --radius:6px;
     --maxw:520px;
   }
+  /* Pool-specific accent themes, set via data-pool on <html> in JS */
+  :root[data-pool="usa"]{
+    --accent:#B22234;       /* Old Glory Red */
+    --accent-dim:#3C3B6E;   /* Old Glory Blue */
+  }
+  :root[data-pool="china"]{
+    --accent:#DE2910;       /* PRC flag red */
+    --accent-dim:#FFDE00;   /* PRC flag yellow */
+  }
   *{box-sizing:border-box}
   html{color-scheme:dark}
   html,body{height:100%}
@@ -401,10 +410,14 @@ function freshCurrentRow(){
   return row;
 }
 
+function applyPoolTheme(poolId){
+  document.documentElement.dataset.pool = poolId;
+}
 function setupPuzzle(mode = currentMode, poolId = currentPool){
   const puzzle = buildPuzzle(mode, poolId);
   currentMode = puzzle.mode;
   currentPool = puzzle.poolId;
+  applyPoolTheme(currentPool);
   today = new Date();
   dailyDateKey = puzzle.dateKey;
   currentPuzzleLabel = puzzle.puzzleNo;
@@ -674,7 +687,7 @@ function stateHintValue(){
 function hintPlanForPool(poolId){
   if(poolId === 'all') return ['continent','population','country','consonant','vowel'];
   if(poolId === 'usa' || poolId === 'china') return ['population','state','consonant','vowel'];
-  if(poolId === 'capitals') return ['continent','population','state','consonant','vowel'];
+  if(poolId === 'capitals') return ['continent','population','consonant','vowel'];
   return ['population','country','consonant','vowel','state'];
 }
 function hintKindMeta(kind){
