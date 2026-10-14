@@ -936,6 +936,8 @@ function updateHeader(){
   const poolSelect = document.getElementById('poolSelect');
   poolSelect.classList.toggle('active', currentMode === 'practice');
   poolSelect.value = currentPool;
+  const poolSize = (POOL_CITIES[currentPool] || CITIES).length;
+  document.getElementById('footnote').textContent = `${poolSize} cities · population data via GeoNames`;
 }
 function hydrateGame(mode = currentMode, poolId = currentPool){
   setupPuzzle(mode, poolId);
@@ -949,7 +951,6 @@ function hydrateGame(mode = currentMode, poolId = currentPool){
 }
 
 /* ----------------- init ----------------- */
-document.getElementById('footnote').textContent = `${CITIES.length} cities · population data via GeoNames`;
 (function initPoolSelect(){
   const sel = document.getElementById('poolSelect');
   for(const pool of POOLS){
