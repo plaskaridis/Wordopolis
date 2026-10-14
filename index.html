@@ -252,7 +252,8 @@
       <p class="meta" id="meta">Puzzle #—</p>
       <div class="mode-switch" role="group" aria-label="Game mode">
         <button class="mode-btn active" id="dailyModeBtn" type="button">Daily</button>
-        <select class="mode-select" id="poolSelect" aria-label="Practice pool"></select>
+        <button class="mode-btn" id="practiceModeBtn" type="button">Practice</button>
+        <select class="mode-select" id="poolSelect" aria-label="Pool"></select>
         <button class="mode-btn new-puzzle" id="newPuzzleBtn" type="button">New puzzle</button>
       </div>
       <svg class="skyline" viewBox="0 0 420 34" preserveAspectRatio="none" aria-hidden="true"></svg>
@@ -345,19 +346,26 @@ function pickStratifiedCity(rng){
   const pool = CITIES_BY_CONTINENT[continent];
   return pool[Math.floor(rng()*pool.length)];
 }
-function getDailyPuzzleFromDate(dateKey){
-  return pickStratifiedCity(createSeededRng(hashString(dateKey)));
-}
-function getPracticePuzzle(poolId){
-  const rng = createSeededRng(hashString(`practice-${Date.now()}-${Math.floor(Math.random()*1e9)}`));
+function pickFromPool(rng, poolId){
   if(poolId === 'all') return pickStratifiedCity(rng);
   const pool = POOL_CITIES[poolId] || CITIES;
   return pool[Math.floor(rng()*pool.length)];
 }
+// 'all' keeps its original unprefixed seed so today's existing global daily
+// city doesn't change out from under anyone; every other pool mixes poolId
+// into the seed so each pool gets its own, independent daily pick.
+function getDailyPuzzleFromDate(dateKey, poolId){
+  const seed = poolId === 'all' ? dateKey : `${poolId}:${dateKey}`;
+  return pickFromPool(createSeededRng(hashString(seed)), poolId);
+}
+function getPracticePuzzle(poolId){
+  const rng = createSeededRng(hashString(`practice-${Date.now()}-${Math.floor(Math.random()*1e9)}`));
+  return pickFromPool(rng, poolId);
+}
 
 /* ----------------- game modes ----------------- */
 const POOLS = [
-  {id:'all', label:'Daily Practice', filter: () => true},
+  {id:'all', label:'Global', filter: () => true},
   {id:'north-america', label:'North America', filter: c => c.c === 'North America'},
   {id:'south-america', label:'South America', filter: c => c.c === 'South America'},
   {id:'europe', label:'Europe', filter: c => c.c === 'Europe'},
@@ -387,7 +395,7 @@ function buildPuzzle(mode, poolId){
   const dateKey = `${year}-${pad2(month)}-${pad2(day)}`;
   const estDateValue = Date.UTC(year, month - 1, day);
   const puzzleNo = Math.floor((estDateValue - EPOCH)/86400000) + 1;
-  return {mode:'daily', poolId:'all', puzzleNo, answer:getDailyPuzzleFromDate(dateKey), dateKey};
+  return {mode:'daily', poolId, puzzleNo, answer:getDailyPuzzleFromDate(dateKey, poolId), dateKey};
 }
 
 /* ----------------- state ----------------- */
@@ -429,7 +437,7 @@ function setupPuzzle(mode = currentMode, poolId = currentPool){
   today = new Date();
   dailyDateKey = puzzle.dateKey;
   currentPuzzleLabel = puzzle.puzzleNo;
-  currentPuzzleId = puzzle.mode === 'daily' ? `daily:${dailyDateKey}` : `practice:${currentPool}:${Date.now()}`;
+  currentPuzzleId = puzzle.mode === 'daily' ? `daily:${currentPool}:${dailyDateKey}` : `practice:${currentPool}:${Date.now()}`;
   answer = puzzle.answer;
   display = answer.n;
   solution = stripAccents(answer.n).toUpperCase();
@@ -785,7 +793,9 @@ function buildShare(){
   });
   const score = won ? guesses.length : 'X';
   const hintMark = hintsUsed ? ` (${hintsUsed}💡)` : '';
-  const modeLabel = currentMode === 'practice' ? poolLabel(currentPool) : 'Daily';
+  const modeLabel = currentMode === 'practice'
+    ? poolLabel(currentPool)
+    : (currentPool === 'all' ? 'Daily' : `${poolLabel(currentPool)} Daily`);
   return `Wordopolis ${modeLabel} #${currentPuzzleLabel}  ${score}/${MAX_GUESSES}${hintMark}  Score: ${computeScore()}pts\n` + lines.join('\n');
 }
 document.getElementById('shareBtn').addEventListener('click', async ()=>{
@@ -907,7 +917,12 @@ document.getElementById('helpBtn').addEventListener('click', ()=>{
 
 /* ----------------- persistence ----------------- */
 function getStateKey(){
-  return currentMode === 'daily' ? `wordopolis:daily:${dailyDateKey}` : `wordopolis:practice:${currentPuzzleId}`;
+  if(currentMode === 'daily'){
+    // 'all' keeps its original key unprefixed by pool so nobody's in-progress
+    // global daily gets orphaned by this key format gaining pool-scoping.
+    return currentPool === 'all' ? `wordopolis:daily:${dailyDateKey}` : `wordopolis:daily:${currentPool}:${dailyDateKey}`;
+  }
+  return `wordopolis:practice:${currentPuzzleId}`;
 }
 function saveState(){
   try {
@@ -929,12 +944,14 @@ function loadState(){
   } catch(e) {}
 }
 function updateHeader(){
+  const dateStr = today.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
   const label = currentMode === 'daily'
-    ? `Puzzle #${currentPuzzleLabel} · ${today.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`
-    : `${poolLabel(currentPool)} · ${today.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`;
+    ? (currentPool === 'all' ? `Puzzle #${currentPuzzleLabel} · ${dateStr}` : `${poolLabel(currentPool)} Daily #${currentPuzzleLabel} · ${dateStr}`)
+    : `${poolLabel(currentPool)} · ${dateStr}`;
   document.getElementById('meta').textContent = label;
   document.getElementById('newPuzzleBtn').style.display = currentMode === 'practice' ? 'inline-flex' : 'none';
   document.getElementById('dailyModeBtn').classList.toggle('active', currentMode === 'daily');
+  document.getElementById('practiceModeBtn').classList.toggle('active', currentMode === 'practice');
   const poolSelect = document.getElementById('poolSelect');
   poolSelect.classList.toggle('active', currentMode === 'practice');
   poolSelect.value = currentPool;
@@ -962,11 +979,12 @@ function hydrateGame(mode = currentMode, poolId = currentPool){
   }
   sel.value = currentPool;
   sel.addEventListener('change', ()=>{
-    hydrateGame('practice', sel.value);
-    toast(`${poolLabel(sel.value)} — starting practice round`);
+    hydrateGame(currentMode, sel.value);
+    toast(currentMode === 'daily' ? `${poolLabel(sel.value)} — today's puzzle` : `${poolLabel(sel.value)} — starting practice round`);
   });
 })();
-document.getElementById('dailyModeBtn').addEventListener('click', ()=>hydrateGame('daily', 'all'));
+document.getElementById('dailyModeBtn').addEventListener('click', ()=>hydrateGame('daily', currentPool));
+document.getElementById('practiceModeBtn').addEventListener('click', ()=>hydrateGame('practice', currentPool));
 document.getElementById('newPuzzleBtn').addEventListener('click', ()=>hydrateGame('practice', currentPool));
 hydrateGame('daily');
 setInterval(()=>{
