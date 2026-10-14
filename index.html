@@ -137,7 +137,11 @@
   .row.bad{animation:shake .5s}
 
   /* ---------- Hints ---------- */
-  .hints{margin:14px auto 6px;display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px;flex-shrink:0;max-height:148px;overflow-y:auto;scrollbar-width:thin}
+  .hints{margin:14px auto 6px;display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px;flex-shrink:0;max-height:148px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;scrollbar-gutter:stable;padding-right:6px}
+  .hints::-webkit-scrollbar{width:6px}
+  .hints::-webkit-scrollbar-track{background:transparent}
+  .hints::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+  .hints::-webkit-scrollbar-thumb:hover{background:var(--muted)}
   .hint-row{display:flex;gap:8px;align-items:stretch}
   .hint-btn{
     flex:1;background:var(--surface);border:1px solid var(--line);color:var(--text);
